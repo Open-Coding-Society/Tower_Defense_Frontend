@@ -5,6 +5,7 @@ description: Build and Upgrade your towers to defend your king!
 Author: Lars, Darsh, Pradyun
 ---
 
+
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
@@ -33,6 +34,15 @@ Author: Lars, Darsh, Pradyun
       position: absolute;
       border-radius: 50%;
       z-index: 10;
+    }
+
+    .enemy {
+      width: 20px;
+      height: 20px;
+      background-color: limegreen;
+      border-radius: 50%;
+      position: absolute;
+      z-index: 5;
     }
   </style>
 </head>
@@ -66,6 +76,51 @@ Author: Lars, Darsh, Pradyun
       dot.style.top = `${point.y}px`;
       gameContainer.appendChild(dot);
     });
+
+    function spawnEnemy(speed = 300) { // speed in pixels per second
+  const enemy = document.createElement("div");
+  enemy.className = "enemy";
+  gameContainer.appendChild(enemy);
+
+  let currentIndex = 0;
+  let start = pathPoints[currentIndex];
+  let end = pathPoints[currentIndex + 1];
+
+  let progress = 0;
+  let lastTimestamp = null;
+
+  const segmentDistance = Math.hypot(end.x - start.x, end.y - start.y);
+
+  function moveEnemy(timestamp) {
+    if (!lastTimestamp) lastTimestamp = timestamp;
+    const deltaTime = (timestamp - lastTimestamp) / 1000; // seconds
+    lastTimestamp = timestamp;
+
+    progress += (speed * deltaTime) / segmentDistance;
+
+    if (progress >= 1) {
+      currentIndex++;
+      if (currentIndex >= pathPoints.length - 1) {
+        enemy.remove(); // reached end
+        return;
+      }
+
+      start = pathPoints[currentIndex];
+      end = pathPoints[currentIndex + 1];
+      progress = 0;
+    }
+
+    const x = start.x + (end.x - start.x) * progress;
+    const y = start.y + (end.y - start.y) * progress;
+    enemy.style.left = `${x}px`;
+    enemy.style.top = `${y}px`;
+
+    requestAnimationFrame(moveEnemy);
+  }
+
+  requestAnimationFrame(moveEnemy);
+}
+spawnEnemy();  // <-- call it after defining the function
   </script>
 </body>
 </html>
