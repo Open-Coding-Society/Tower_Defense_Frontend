@@ -32,11 +32,9 @@ Author: Lars, Darsh, Pradyun
   }
 
   .enemy {
-    width: 20px;
-    height: 20px;
-    border-radius: 50%;
     position: absolute;
     z-index: 5;
+    pointer-events: none;
   }
 </style>
 
@@ -44,7 +42,6 @@ Author: Lars, Darsh, Pradyun
 
 <script>
   const pathPoints = [
-    // in order; spawn at x100 y245
     { x: 100, y: 245 },
     { x: 500, y: 245 },
     { x: 500, y: 100 },
@@ -62,7 +59,8 @@ Author: Lars, Darsh, Pradyun
 
   const gameContainer = document.getElementById("gameContainer");
 
-  pathPoints.forEach(point => { //comment this out to remove pathway points
+  // 🧪 Debug path points — comment out to hide
+  pathPoints.forEach(point => {
     const dot = document.createElement("div");
     dot.className = "path-point";
     dot.style.left = `${point.x}px`;
@@ -70,59 +68,98 @@ Author: Lars, Darsh, Pradyun
     gameContainer.appendChild(dot);
   });
 
+  const enemies = [];
+
+  function spawnEnemy({ imageSrc, speed, size, health }) {
+    const img = document.createElement("img");
+    img.src = imageSrc;
+    img.className = "enemy";
+    img.style.width = `${size}px`;
+    img.style.height = `${size}px`;
+    gameContainer.appendChild(img);
+
+    const enemy = {
+      el: img,
+      x: pathPoints[0].x,
+      y: pathPoints[0].y,
+      speed,
+      size,
+      health,
+      maxHealth: health,
+      currentIndex: 0,
+      progress: 0,
+      segmentDistance: null,
+      start: pathPoints[0],
+      end: pathPoints[1],
+      lastTimestamp: null
+    };
+
+    enemy.segmentDistance = Math.hypot(
+      enemy.end.x - enemy.start.x,
+      enemy.end.y - enemy.start.y
+    );
+
+    enemies.push(enemy);
+    requestAnimationFrame(ts => moveEnemy(enemy, ts));
+  }
+
+  function moveEnemy(enemy, timestamp) {
+    if (!enemy.lastTimestamp) enemy.lastTimestamp = timestamp;
+    const dt = (timestamp - enemy.lastTimestamp) / 1000;
+    enemy.lastTimestamp = timestamp;
+
+    enemy.progress += (enemy.speed * dt) / enemy.segmentDistance;
+
+    if (enemy.progress >= 1) {
+      enemy.currentIndex++;
+      if (enemy.currentIndex >= pathPoints.length - 1) {
+        enemy.el.remove();
+        enemies.splice(enemies.indexOf(enemy), 1);
+        return;
+      }
+      enemy.start = pathPoints[enemy.currentIndex];
+      enemy.end = pathPoints[enemy.currentIndex + 1];
+      enemy.segmentDistance = Math.hypot(
+        enemy.end.x - enemy.start.x,
+        enemy.end.y - enemy.start.y
+      );
+      enemy.progress = 0;
+    }
+
+    const x = enemy.start.x + (enemy.end.x - enemy.start.x) * enemy.progress;
+    const y = enemy.start.y + (enemy.end.y - enemy.start.y) * enemy.progress;
+    enemy.x = x;
+    enemy.y = y;
+
+    // Center the enemy image
+    enemy.el.style.left = `${x - enemy.size / 2}px`;
+    enemy.el.style.top = `${y - enemy.size / 2}px`;
+
+    requestAnimationFrame(ts => moveEnemy(enemy, ts));
+  }
+
+  // 🎯 Example usage: spawn multiple types
   spawnEnemy({
     speed: 50,
     imageSrc: 'https://i.postimg.cc/G2qWD0nP/image-2025-05-14-110409784.png', // giant
-    size: 80
+    size: 80,
+    health: 300
   });
 
-  function spawnEnemy({ speed = 100, imageSrc = '', size = 20 }) {
-    const enemy = document.createElement("img");
-    enemy.src = imageSrc;
-    enemy.className = "enemy";
-    enemy.style.width = `${size}px`;
-    enemy.style.height = `${size}px`;
-    enemy.style.position = "absolute";
-    enemy.style.zIndex = 5;
-    gameContainer.appendChild(enemy);
+  spawnEnemy({
+    speed: 100,
+    imageSrc: 'https://i.postimg.cc/4NxrrzmL/image-2025-05-16-101734632.png', // HOGGG RIDA
+    size: 80,
+    health: 100
+  });
 
-    let currentIndex = 0;
-    let start = pathPoints[currentIndex];
-    let end = pathPoints[currentIndex + 1];
-    let progress = 0;
-    let lastTimestamp = null;
-    let segmentDistance = Math.hypot(end.x - start.x, end.y - start.y);
-
-    function moveEnemy(timestamp) {
-      if (!lastTimestamp) lastTimestamp = timestamp;
-      const deltaTime = (timestamp - lastTimestamp) / 1000;
-      lastTimestamp = timestamp;
-
-      progress += (speed * deltaTime) / segmentDistance;
-
-      if (progress >= 1) {
-        currentIndex++;
-        if (currentIndex >= pathPoints.length - 1) {
-          enemy.remove();
-          return;
-        }
-        start = pathPoints[currentIndex];
-        end = pathPoints[currentIndex + 1];
-        progress = 0;
-        segmentDistance = Math.hypot(end.x - start.x, end.y - start.y);
-      }
-
-      const x = start.x + (end.x - start.x) * progress;
-      const y = start.y + (end.y - start.y) * progress;
-
-      // 🧠 Offset by half the size to center the image on the path
-      enemy.style.left = `${x - size / 2}px`;
-      enemy.style.top = `${y - size / 2}px`;
-
-      requestAnimationFrame(moveEnemy);
-    }
-
-    requestAnimationFrame(moveEnemy);
-  }
-  spawnEnemy();  // <-- call it after defining the function
+  // 🕒 Optional: spawn every few seconds (for testing)
+  setInterval(() => {
+    spawnEnemy({
+      speed: 75,
+      imageSrc: 'https://i.postimg.cc/G2qWD0nP/image-2025-05-14-110409784.png',
+      size: 70,
+      health: 200
+    });
+  }, 4000);
 </script>
