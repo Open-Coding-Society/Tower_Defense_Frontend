@@ -155,6 +155,127 @@ Author: Lars, Darsh, Pradyun
     requestAnimationFrame(ts => moveEnemy(enemy, ts));
   }
 
+  // Store interval IDs for clearing on restart
+  let enemySpawnIntervals = [];
+
+  function startEnemySpawns() {
+    // Clear any existing intervals first
+    enemySpawnIntervals.forEach(id => clearInterval(id));
+    enemySpawnIntervals = [];
+
+    // Giant
+    enemySpawnIntervals.push(setInterval(() => {
+      spawnEnemy({
+        speed: 25,
+        imageSrc: 'https://i.postimg.cc/G2qWD0nP/image-2025-05-14-110409784.png',
+        size: 80,
+        health: 300
+      });
+    }, 10000));
+    // Hog Rider
+    enemySpawnIntervals.push(setInterval(() => {
+      spawnEnemy({
+        speed: 100,
+        imageSrc: 'https://i.postimg.cc/4NxrrzmL/image-2025-05-16-101734632.png',
+        size: 60,
+        health: 100
+      });
+    }, 15000));
+    // Skeleton Army
+    enemySpawnIntervals.push(setInterval(() => {
+      spawnEnemy({
+        speed: 60,
+        imageSrc: 'https://i.postimg.cc/J7Z3cnmp/image-2025-05-16-103314524.png',
+        size: 40,
+        health: 30
+      });
+    }, 18000));
+    // Baby Dragon
+    enemySpawnIntervals.push(setInterval(() => {
+      spawnEnemy({
+        speed: 50,
+        imageSrc: 'https://i.postimg.cc/zfyKLD0S/image-2025-05-16-103451709.png',
+        size: 55,
+        health: 120
+      });
+    }, 22000));
+    // Minion Horde
+    enemySpawnIntervals.push(setInterval(() => {
+      spawnEnemy({
+        speed: 90,
+        imageSrc: 'https://i.postimg.cc/PxZD43GC/image-2025-05-16-103616663.png',
+        size: 35,
+        health: 25
+      });
+    }, 20000));
+    // Balloon
+    enemySpawnIntervals.push(setInterval(() => {
+      spawnEnemy({
+        speed: 30,
+        imageSrc: 'https://i.postimg.cc/28TZ2Lt7/image-2025-05-16-103738864.png',
+        size: 65,
+        health: 150
+      });
+    }, 30000));
+    // Bandit
+    enemySpawnIntervals.push(setInterval(() => {
+      spawnEnemy({
+        speed: 120,
+        imageSrc: 'https://i.postimg.cc/j2cLgBMS/image-2025-05-16-103917837.png',
+        size: 50,
+        health: 80
+      });
+    }, 17000));
+    // P.E.K.K.A
+    enemySpawnIntervals.push(setInterval(() => {
+      spawnEnemy({
+        speed: 15,
+        imageSrc: 'https://i.postimg.cc/FsnKYyq8/image-2025-05-16-104224204.png',
+        size: 90,
+        health: 500
+      });
+    }, 40000));
+    // Witch
+    enemySpawnIntervals.push(setInterval(() => {
+      spawnEnemy({
+        speed: 35,
+        imageSrc: 'https://i.postimg.cc/YqVprpLw/image-2025-05-16-104350767.png',
+        size: 60,
+        health: 150
+      });
+    }, 25000));
+    // Ram Rider
+    enemySpawnIntervals.push(setInterval(() => {
+      spawnEnemy({
+        speed: 80,
+        imageSrc: 'https://i.postimg.cc/YCYwtQw1/image-2025-05-16-104501378.png',
+        size: 65,
+        health: 180
+      });
+    }, 28000));
+    // Lava Hound
+    enemySpawnIntervals.push(setInterval(() => {
+      spawnEnemy({
+        speed: 20,
+        imageSrc: 'https://i.postimg.cc/0QH4YNsk/image-2025-05-16-104632815.png',
+        size: 100,
+        health: 600
+      });
+    }, 45000));
+    // Royal Ghost
+    enemySpawnIntervals.push(setInterval(() => {
+      spawnEnemy({
+        speed: 70,
+        imageSrc: 'https://i.postimg.cc/CxL6QDxh/image-2025-05-16-104742624.png',
+        size: 70,
+        health: 200
+      });
+    }, 35000));
+  }
+
+  // Start all enemy spawns on game load
+  startEnemySpawns();
+
   // User health bar logic
   let userHealth = 5000;
   const userMaxHealth = 5000;
@@ -226,17 +347,22 @@ Author: Lars, Darsh, Pradyun
       // Fix: force repaint to ensure transition works and preserve background color
       restartBtn.style.background = "#4caf50";
       restartBtn.onclick = () => {
-        // Remove all enemies
+        // Remove all enemies and clear the array
         enemies.forEach(e => {
           e.el.remove();
           if (e.healthBarContainer) e.healthBarContainer.remove();
         });
-        enemies.length = 0;
+        enemies.length = 0; // This ensures no invisible enemies remain
         // Reset user health
         userHealth = userMaxHealth;
         updateUserHealthBar();
         // Remove popup
         overlay.remove();
+        // Clear all enemy spawn intervals
+        enemySpawnIntervals.forEach(id => clearInterval(id));
+        enemySpawnIntervals = [];
+        // Start enemy spawns again
+        startEnemySpawns();
         // Spawn a giant instantly again
         spawnEnemy({
           speed: 25,
@@ -272,6 +398,36 @@ Author: Lars, Darsh, Pradyun
         } else if (enemy.size === 60 && enemy.health === 100 && enemy.speed === 100) {
           // Hog Rider
           userHealth = Math.max(0, userHealth - 500);
+        } else if (enemy.size === 40 && enemy.health === 30 && enemy.speed === 60) {
+          // Skeleton Army (swarm, low HP)
+          userHealth = Math.max(0, userHealth - 100);
+        } else if (enemy.size === 55 && enemy.health === 120 && enemy.speed === 50) {
+          // Baby Dragon (flying AoE)
+          userHealth = Math.max(0, userHealth - 350);
+        } else if (enemy.size === 35 && enemy.health === 25 && enemy.speed === 90) {
+          // Minion Horde (air swarm)
+          userHealth = Math.max(0, userHealth - 120);
+        } else if (enemy.size === 65 && enemy.health === 150 && enemy.speed === 30) {
+          // Balloon (flying nuke)
+          userHealth = Math.max(0, userHealth - 800);
+        } else if (enemy.size === 50 && enemy.health === 80 && enemy.speed === 120) {
+          // Bandit (dashing unit)
+          userHealth = Math.max(0, userHealth - 200);
+        } else if (enemy.size === 90 && enemy.health === 500 && enemy.speed === 15) {
+          // P.E.K.K.A (boss tank)
+          userHealth = Math.max(0, userHealth - 1000);
+        } else if (enemy.size === 60 && enemy.health === 150 && enemy.speed === 35) {
+          // Witch (spawner)
+          userHealth = Math.max(0, userHealth - 250);
+        } else if (enemy.size === 65 && enemy.health === 180 && enemy.speed === 80) {
+          // Ram Rider (hybrid speed unit)
+          userHealth = Math.max(0, userHealth - 400);
+        } else if (enemy.size === 100 && enemy.health === 600 && enemy.speed === 20) {
+          // Lava Hound (air tank)
+          userHealth = Math.max(0, userHealth - 700);
+        } else if (enemy.size === 70 && enemy.health === 200 && enemy.speed === 70) {
+          // Royal Ghost (stealth)
+          userHealth = Math.max(0, userHealth - 300);
         }
         updateUserHealthBar();
         enemy.el.remove();
@@ -311,24 +467,4 @@ Author: Lars, Darsh, Pradyun
     size: 80,
     health: 300
   });
-
-  // 🎯 Spawn giants every 10 seconds
-  setInterval(() => {
-    spawnEnemy({
-      speed: 25,
-      imageSrc: 'https://i.postimg.cc/G2qWD0nP/image-2025-05-14-110409784.png', // giant
-      size: 80,
-      health: 300
-    });
-  }, 10000);
-
-  // 🎯 Spawn hog riders every 15 seconds
-  setInterval(() => {
-    spawnEnemy({
-      speed: 100,
-      imageSrc: 'https://i.postimg.cc/4NxrrzmL/image-2025-05-16-101734632.png', // HOGGG RIDA
-      size: 60,
-      health: 100
-    });
-  }, 15000);
 </script>
