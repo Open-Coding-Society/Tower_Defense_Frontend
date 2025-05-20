@@ -36,6 +36,17 @@ Author: Lars, Darsh, Pradyun
     z-index: 5;
     pointer-events: none;
   }
+
+  .tower {
+    position: absolute;
+    z-index: 15;
+  }
+
+  .tower-radius {
+    position: absolute;
+    z-index: 10;
+    pointer-events: none;
+  }
 </style>
 
 <div id="userHealthBarContainer" style="width: 400px; height: 28px; margin: 16px auto 8px auto; position: relative; background: rgba(0,0,0,0.7); border-radius: 8px; border: 2px solid #fff; display: flex; align-items: center; justify-content: center;">
@@ -776,4 +787,235 @@ Author: Lars, Darsh, Pradyun
     size: 80,
     health: 300
   });
+
+  // --- Tower Data ---
+  const towerData = [
+    { name: 'Archer Tower', imageSrc: 'https://i.postimg.cc/TPZstVyP/image-2025-05-20-095201612.png', radius: 120 },
+    { name: 'Wizard Tower', imageSrc: 'https://i.postimg.cc/sx8GWg6b/image-2025-05-20-095324671.png', radius: 100 },
+    { name: 'Inferno Tower', imageSrc: 'https://i.postimg.cc/Y9vWCF8Q/image-2025-05-20-095600055.png', radius: 80 },
+    { name: 'Tesla Coil', imageSrc: 'https://i.postimg.cc/ZKtdJCNy/image-2025-05-20-095705631.png', radius: 110 },
+    { name: 'Bomb Tower', imageSrc: 'https://i.postimg.cc/JhnypXfS/image-2025-05-20-095832932.png', radius: 90 },
+    { name: 'Magic Tower', imageSrc: 'https://i.postimg.cc/sDmDbX4z/image-2025-05-20-100137225.png', radius: 105 },
+    { name: 'Freeze Tower', imageSrc: 'https://i.postimg.cc/jqQsJ59f/image-2025-05-20-100226131.png', radius: 95 },
+    { name: 'Hunter Nest', imageSrc: 'https://i.postimg.cc/P5chk8Lg/image-2025-05-20-100344794.png', radius: 100 },
+    { name: 'Lightning Obelisk', imageSrc: 'https://i.postimg.cc/br3cVGcF/image-2025-05-20-100433723.png', radius: 115 },
+    { name: 'Rage Beacon', imageSrc: 'https://i.postimg.cc/PfKgj89S/image-2025-05-20-100521354.png', radius: 130 },
+  ];
+
+  const placedTowers = [];
+
+  function isValidTowerPlacement(x, y, radius) {
+    // Prevent placement if too close to any path segment (buffer 40px)
+    const buffer = 40;
+    for (let i = 0; i < pathPoints.length - 1; i++) {
+      const p1 = pathPoints[i];
+      const p2 = pathPoints[i + 1];
+      // Project (x, y) onto the segment p1-p2
+      const dx = p2.x - p1.x;
+      const dy = p2.y - p1.y;
+      const len2 = dx * dx + dy * dy;
+      let t = 0;
+      if (len2 > 0) {
+        t = ((x - p1.x) * dx + (y - p1.y) * dy) / len2;
+        t = Math.max(0, Math.min(1, t));
+      }
+      const projX = p1.x + t * dx;
+      const projY = p1.y + t * dy;
+      const dist = Math.hypot(x - projX, y - projY);
+      if (dist < buffer) return false;
+    }
+    return true;
+  }
+
+  function renderTowers() {
+    // Remove all previous tower images and radii
+    document.querySelectorAll('.tower').forEach(el => el.remove());
+    document.querySelectorAll('.tower-radius').forEach(el => el.remove());
+    placedTowers.forEach(tower => {
+      // Draw attack radius
+      const radiusDiv = document.createElement('div');
+      radiusDiv.className = 'tower-radius';
+      radiusDiv.style.position = 'absolute';
+      radiusDiv.style.left = `${tower.x - tower.radius}px`;
+      radiusDiv.style.top = `${tower.y - tower.radius}px`;
+      radiusDiv.style.width = `${tower.radius * 2}px`;
+      radiusDiv.style.height = `${tower.radius * 2}px`;
+      radiusDiv.style.borderRadius = '50%';
+      radiusDiv.style.background = 'rgba(0, 200, 255, 0.15)';
+      radiusDiv.style.border = '2px dashed #00bcd4';
+      radiusDiv.style.pointerEvents = 'none';
+      radiusDiv.style.zIndex = 10;
+      gameContainer.appendChild(radiusDiv);
+      // Draw tower image
+      const img = document.createElement('img');
+      img.src = tower.imageSrc;
+      img.className = 'tower';
+      img.style.position = 'absolute';
+      img.style.left = `${tower.x - 25}px`;
+      img.style.top = `${tower.y - 25}px`;
+      img.style.width = '50px';
+      img.style.height = '50px';
+      img.title = tower.name;
+      img.style.zIndex = 15;
+      gameContainer.appendChild(img);
+    });
+  }
+
+  // --- Tower Menu Centered Below Map ---
+  function showTowerMenu() {
+    let menu = document.getElementById('towerMenu');
+    if (menu) menu.remove();
+    menu = document.createElement('div');
+    menu.id = 'towerMenu';
+    menu.style.position = 'absolute';
+    menu.style.left = (gameContainer.offsetLeft + gameContainer.offsetWidth / 2 - 320) + 'px';
+    menu.style.top = (gameContainer.offsetTop + gameContainer.offsetHeight + 16) + 'px';
+    menu.style.width = '640px';
+    menu.style.background = 'rgba(30,30,30,0.95)';
+    menu.style.border = '2px solid #fff';
+    menu.style.borderRadius = '10px';
+    menu.style.padding = '12px';
+    menu.style.zIndex = 10001;
+    menu.style.display = 'flex';
+    menu.style.flexDirection = 'column';
+    menu.style.gap = '8px';
+    menu.innerHTML = '<b style="color:#fff;">Drag Towers</b>';
+    const spriteRow = document.createElement('div');
+    spriteRow.style.display = 'flex';
+    spriteRow.style.gap = '18px';
+    spriteRow.style.justifyContent = 'center';
+    towerData.forEach((tower, idx) => {
+      const spriteCol = document.createElement('div');
+      spriteCol.style.display = 'flex';
+      spriteCol.style.flexDirection = 'column';
+      spriteCol.style.alignItems = 'center';
+      const sprite = document.createElement('img');
+      sprite.src = tower.imageSrc;
+      sprite.title = tower.name;
+      sprite.style.width = '48px';
+      sprite.style.height = '48px';
+      sprite.style.cursor = 'grab';
+      sprite.draggable = true;
+      sprite.ondragstart = e => {
+        e.dataTransfer.setData('towerIdx', idx);
+      };
+      spriteCol.appendChild(sprite);
+      spriteRow.appendChild(spriteCol);
+    });
+    menu.appendChild(spriteRow);
+    document.body.appendChild(menu);
+  }
+
+  showTowerMenu();
+
+  gameContainer.ondragover = e => {
+    e.preventDefault();
+  };
+  gameContainer.ondrop = e => {
+    e.preventDefault();
+    const rect = gameContainer.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    const idx = e.dataTransfer.getData('towerIdx');
+    const tower = towerData[idx];
+    if (!tower) return;
+    if (!isValidTowerPlacement(x, y, tower.radius)) {
+      alert('Cannot place tower here! Too close to path.');
+      return;
+    }
+    placedTowers.push({ ...tower, x, y });
+    renderTowers();
+  };
+
+  // --- Tower Attack Logic ---
+  const TOWER_ATTACK_INTERVAL = 500; // ms
+  const INFERNO_RAMP = [10, 20, 40, 80, 160]; // Damage ramps up
+  const ARCHER_DAMAGE = 30;
+  const BOMB_DAMAGE = 50;
+  const BOMB_RADIUS = 50;
+
+  const towerAttackState = new Map(); // For inferno ramping
+
+  function towerAttackLoop() {
+    placedTowers.forEach(tower => {
+      if (tower.name === 'Inferno Tower') {
+        // Find nearest enemy in range
+        let nearest = null, minDist = Infinity;
+        enemies.forEach(enemy => {
+          if (!enemy.alive) return;
+          const dx = tower.x - enemy.x;
+          const dy = tower.y - enemy.y;
+          const dist = Math.sqrt(dx*dx + dy*dy);
+          if (dist < tower.radius && dist < minDist) {
+            nearest = enemy;
+            minDist = dist;
+          }
+        });
+        if (nearest) {
+          // Ramp up damage if same target, else reset
+          let state = towerAttackState.get(tower) || { target: null, ramp: 0 };
+          if (state.target === nearest) {
+            state.ramp = Math.min(state.ramp + 1, INFERNO_RAMP.length - 1);
+          } else {
+            state.target = nearest;
+            state.ramp = 0;
+          }
+          nearest.takeDamage(INFERNO_RAMP[state.ramp]);
+          towerAttackState.set(tower, state);
+        } else {
+          towerAttackState.delete(tower);
+        }
+      } else if (tower.name === 'Archer Tower') {
+        // Shoot at nearest enemy in range
+        let lastShot = tower.lastShot || 0;
+        if (performance.now() - lastShot > 700) {
+          let nearest = null, minDist = Infinity;
+          enemies.forEach(enemy => {
+            if (!enemy.alive) return;
+            const dx = tower.x - enemy.x;
+            const dy = tower.y - enemy.y;
+            const dist = Math.sqrt(dx*dx + dy*dy);
+            if (dist < tower.radius && dist < minDist) {
+              nearest = enemy;
+              minDist = dist;
+            }
+          });
+          if (nearest) {
+            nearest.takeDamage(ARCHER_DAMAGE);
+            tower.lastShot = performance.now();
+          }
+        }
+      } else if (tower.name === 'Bomb Tower') {
+        // Bomb Tower: splash damage
+        let lastShot = tower.lastShot || 0;
+        if (performance.now() - lastShot > 1200) {
+          let nearest = null, minDist = Infinity;
+          enemies.forEach(enemy => {
+            if (!enemy.alive) return;
+            const dx = tower.x - enemy.x;
+            const dy = tower.y - enemy.y;
+            const dist = Math.sqrt(dx*dx + dy*dy);
+            if (dist < tower.radius && dist < minDist) {
+              nearest = enemy;
+              minDist = dist;
+            }
+          });
+          if (nearest) {
+            // Splash: damage all enemies within BOMB_RADIUS of target
+            enemies.forEach(enemy2 => {
+              if (!enemy2.alive) return;
+              const dx = nearest.x - enemy2.x;
+              const dy = nearest.y - enemy2.y;
+              if (Math.sqrt(dx*dx + dy*dy) < BOMB_RADIUS) {
+                enemy2.takeDamage(BOMB_DAMAGE);
+              }
+            });
+            tower.lastShot = performance.now();
+          }
+        }
+      }
+    });
+    setTimeout(towerAttackLoop, TOWER_ATTACK_INTERVAL);
+  }
+  towerAttackLoop();
 </script>
