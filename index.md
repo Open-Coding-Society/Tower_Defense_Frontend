@@ -49,6 +49,11 @@ Author: Lars, Darsh, Pradyun
   }
 </style>
 
+<!-- Coin Display -->
+<div id="coinDisplay" style="min-width: 120px; height: 48px; background: rgba(255,215,0,0.15); border: 2px solid #ffd700; border-radius: 24px; display: flex; align-items: center; justify-content: center; font-size: 28px; font-weight: bold; color: #ffd700; z-index: 10002; box-shadow: 0 2px 8px #0008; pointer-events: none;">
+  <span id="coinAmount" style="min-width: 60px; text-align: center; display: inline-block; flex: 1 1 auto;">0</span>
+</div>
+
 <div id="userHealthBarContainer" style="width: 400px; height: 28px; margin: 16px auto 8px auto; position: relative; background: rgba(0,0,0,0.7); border-radius: 8px; border: 2px solid #fff; display: flex; align-items: center; justify-content: center;">
   <div id="userHealthBarBg" style="position: absolute; left: 0; top: 0; width: 100%; height: 100%; background: #333; border-radius: 8px;"></div>
   <div id="userHealthBar" style="position: absolute; left: 0; top: 0; height: 100%; background: linear-gradient(90deg, #4caf50, #a5d6a7); border-radius: 8px;"></div>
@@ -57,6 +62,25 @@ Author: Lars, Darsh, Pradyun
 <div id="gameContainer"></div>
 
 <script>
+  // --- Coin System ---
+  let coins = 500; // Starting coins
+  const coinAmountEl = document.getElementById("coinAmount");
+  function updateCoinDisplay() {
+    coinAmountEl.textContent = coins.toLocaleString();
+    // Auto-expand for large numbers
+    coinAmountEl.parentElement.style.minWidth = (80 + Math.max(0, (coinAmountEl.textContent.length - 4) * 16)) + "px";
+  }
+  updateCoinDisplay();
+
+  function addCoins(amount) {
+    coins += amount;
+    updateCoinDisplay();
+  }
+  function spendCoins(amount) {
+    coins -= amount;
+    updateCoinDisplay();
+  }
+
   const pathPoints = [
     { x: 100, y: 245 },
     { x: 500, y: 245 },
@@ -86,12 +110,19 @@ Author: Lars, Darsh, Pradyun
 
   const enemies = [];
 
-  function spawnEnemy({ imageSrc, speed, size, health, customStart }) {
+  // --- Royal Ghost Reveal Radius ---
+  const ROYAL_GHOST_REVEAL_RADIUS = 100;
+
+  function spawnEnemy({ imageSrc, speed, size, health, customStart, coinReward, isRoyalGhost }) {
     const img = document.createElement("img");
     img.src = imageSrc;
     img.className = "enemy";
     img.style.width = `${size}px`;
     img.style.height = `${size}px`;
+    if (isRoyalGhost) {
+      img.style.opacity = "0.2";
+      img.dataset.royalGhost = "1";
+    }
 
     // Create health bar container
     const healthBarContainer = document.createElement("div");
@@ -135,6 +166,8 @@ Author: Lars, Darsh, Pradyun
       end: pathPoints[1],
       lastTimestamp: null,
       alive: true,
+      coinReward: coinReward || 10, // Default if not specified
+      isRoyalGhost: !!isRoyalGhost,
       takeDamage(amount) {
         this.health = Math.max(0, this.health - amount);
         this.updateHealthBar();
@@ -143,6 +176,7 @@ Author: Lars, Darsh, Pradyun
           this.el.remove();
           this.healthBarContainer.remove();
           enemies.splice(enemies.indexOf(this), 1);
+          if (this.coinReward) addCoins(this.coinReward);
         }
       },
       updateHealthBar() {
@@ -204,6 +238,22 @@ Author: Lars, Darsh, Pradyun
     currentIntervals = { ...baseIntervals };
   }
 
+  // --- Spawn Interval Minimum Cap ---
+  const MIN_SPAWN_INTERVALS = {
+    giant: 2000,
+    hog: 2000,
+    skeleton: 2000,
+    babyDragon: 2500,
+    minion: 2000,
+    balloon: 3000,
+    bandit: 2000,
+    pekka: 5000,
+    witch: 4000,
+    ram: 2000,
+    lava: 6000,
+    ghost: 2000
+  };
+
   function startEnemySpawns() {
     clearEnemySpawns();
     resetSpawnState();
@@ -221,7 +271,8 @@ Author: Lars, Darsh, Pradyun
               speed: 60,
               imageSrc: 'https://i.postimg.cc/J7Z3cnmp/image-2025-05-16-103314524.png',
               size: 40,
-              health: 30
+              health: 30,
+              coinReward: 8
             });
           }, 120);
           if (localSkeletonCount < 64) {
@@ -233,7 +284,8 @@ Author: Lars, Darsh, Pradyun
               speed: 90,
               imageSrc: 'https://i.postimg.cc/PxZD43GC/image-2025-05-16-103616663.png',
               size: 35,
-              health: 25
+              health: 25,
+              coinReward: 6
             });
           }, 100);
           if (localMinionCount < 5) localMinionCount += 1;
@@ -241,7 +293,7 @@ Author: Lars, Darsh, Pradyun
           if (onSpawn) onSpawn();
           spawnFn();
         }
-        interval = interval * 0.97;
+        interval = Math.max(interval * 0.97, MIN_SPAWN_INTERVALS[intervalKey] || 2000);
         currentIntervals[intervalKey] = interval;
         enemySpawnTimeouts.push(setTimeout(loop, interval));
       }
@@ -267,7 +319,8 @@ Author: Lars, Darsh, Pradyun
         speed: 25,
         imageSrc: 'https://i.postimg.cc/G2qWD0nP/image-2025-05-14-110409784.png',
         size: 80,
-        health: 300
+        health: 300,
+        coinReward: 120
       });
     }, "giant");
 
@@ -277,7 +330,8 @@ Author: Lars, Darsh, Pradyun
         speed: 100,
         imageSrc: 'https://i.postimg.cc/4NxrrzmL/image-2025-05-16-101734632.png',
         size: 60,
-        health: 100
+        health: 100,
+        coinReward: 80
       });
     }, "hog");
 
@@ -290,7 +344,8 @@ Author: Lars, Darsh, Pradyun
         speed: 50,
         imageSrc: 'https://i.postimg.cc/zfyKLD0S/image-2025-05-16-103451709.png',
         size: 55,
-        health: 120
+        health: 120,
+        coinReward: 90
       });
     }, "babyDragon");
 
@@ -303,7 +358,8 @@ Author: Lars, Darsh, Pradyun
         speed: 30,
         imageSrc: 'https://i.postimg.cc/28TZ2Lt7/image-2025-05-16-103738864.png',
         size: 65,
-        health: 150
+        health: 150,
+        coinReward: 150
       });
     }, "balloon");
 
@@ -313,7 +369,8 @@ Author: Lars, Darsh, Pradyun
         speed: 120,
         imageSrc: 'https://i.postimg.cc/j2cLgBMS/image-2025-05-16-103917837.png',
         size: 50,
-        health: 80
+        health: 80,
+        coinReward: 60
       });
     }, "bandit");
 
@@ -323,7 +380,8 @@ Author: Lars, Darsh, Pradyun
         speed: 15,
         imageSrc: 'https://i.postimg.cc/FsnKYyq8/image-2025-05-16-104224204.png',
         size: 90,
-        health: 500
+        health: 500,
+        coinReward: 300
       });
     }, "pekka");
 
@@ -334,7 +392,8 @@ Author: Lars, Darsh, Pradyun
         speed: 35,
         imageSrc: 'https://i.postimg.cc/YqVprpLw/image-2025-05-16-104350767.png',
         size: 60,
-        health: 150
+        health: 150,
+        coinReward: 100
       };
       // Spawn the witch and get a reference to the enemy object
       let witchEnemyObj = null;
@@ -383,6 +442,7 @@ Author: Lars, Darsh, Pradyun
           end: pathPoints[1],
           lastTimestamp: null,
           alive: true,
+          coinReward: witchEnemyConfig.coinReward,
           takeDamage(amount) {
             this.health = Math.max(0, this.health - amount);
             this.updateHealthBar();
@@ -391,6 +451,7 @@ Author: Lars, Darsh, Pradyun
               this.el.remove();
               this.healthBarContainer.remove();
               enemies.splice(enemies.indexOf(this), 1);
+              if (this.coinReward) addCoins(this.coinReward);
             }
           },
           updateHealthBar() {
@@ -465,6 +526,7 @@ Author: Lars, Darsh, Pradyun
             speed: 60,
             size: 40,
             health: 30,
+            coinReward: 8,
             customStart: start,
             // Pass custom path index info
             _witchPathIndex: closestIndex
@@ -513,6 +575,7 @@ Author: Lars, Darsh, Pradyun
             end: end,
             lastTimestamp: null,
             alive: true,
+            coinReward: skeleton.coinReward,
             takeDamage(amount) {
               this.health = Math.max(0, this.health - amount);
               this.updateHealthBar();
@@ -521,6 +584,7 @@ Author: Lars, Darsh, Pradyun
                 this.el.remove();
                 this.healthBarContainer.remove();
                 enemies.splice(enemies.indexOf(this), 1);
+                if (this.coinReward) addCoins(this.coinReward);
               }
             },
             updateHealthBar() {
@@ -555,7 +619,8 @@ Author: Lars, Darsh, Pradyun
         speed: 80,
         imageSrc: 'https://i.postimg.cc/YCYwtQw1/image-2025-05-16-104501378.png',
         size: 65,
-        health: 180
+        health: 180,
+        coinReward: 110
       });
     }, "ram");
 
@@ -565,7 +630,8 @@ Author: Lars, Darsh, Pradyun
         speed: 20,
         imageSrc: 'https://i.postimg.cc/0QH4YNsk/image-2025-05-16-104632815.png',
         size: 100,
-        health: 600
+        health: 600,
+        coinReward: 250
       });
     }, "lava");
 
@@ -575,7 +641,9 @@ Author: Lars, Darsh, Pradyun
         speed: 70,
         imageSrc: 'https://i.postimg.cc/CxL6QDxh/image-2025-05-16-104742624.png',
         size: 70,
-        health: 200
+        health: 200,
+        coinReward: 90,
+        isRoyalGhost: true
       });
     }, "ghost");
   }
@@ -679,6 +747,11 @@ Author: Lars, Darsh, Pradyun
           size: 80,
           health: 300
         });
+        // Reset coins
+        coins = 500;
+        updateCoinDisplay();
+        // Reset spawn state (intervals and counts)
+        resetSpawnState();
       };
       overlay.appendChild(restartBtn);
       // Fade in the button
@@ -698,9 +771,22 @@ Author: Lars, Darsh, Pradyun
 
     enemy.progress += (enemy.speed * dt) / enemy.segmentDistance;
 
+    // --- Royal Ghost Visibility Logic ---
+    if (enemy.isRoyalGhost) {
+      let revealed = false;
+      for (const tower of placedTowers) {
+        const dx = tower.x - enemy.x;
+        const dy = tower.y - enemy.y;
+        if (Math.sqrt(dx * dx + dy * dy) < ROYAL_GHOST_REVEAL_RADIUS) {
+          revealed = true;
+          break;
+        }
+      }
+      enemy.el.style.opacity = revealed ? "1" : "0.2";
+    }
+
     if (enemy.progress >= 1) {
       enemy.currentIndex++;
-      // If this enemy was spawned by the witch, use its custom path index logic
       if (typeof enemy.currentIndex !== "undefined" && enemy.currentIndex < pathPoints.length - 1) {
         enemy.start = pathPoints[enemy.currentIndex];
         enemy.end = pathPoints[enemy.currentIndex + 1];
@@ -711,47 +797,35 @@ Author: Lars, Darsh, Pradyun
         enemy.progress = 0;
       } else if (enemy.currentIndex >= pathPoints.length - 1) {
         // Damage user health based on enemy type
-        if (enemy.size === 80 && enemy.health === 300 && enemy.speed === 25) {
-          // Giant
+        if (enemy.size === 80 && enemy.maxHealth === 300 && enemy.speed === 25) {
           userHealth = Math.max(0, userHealth - 300);
-        } else if (enemy.size === 60 && enemy.health === 100 && enemy.speed === 100) {
-          // Hog Rider
+        } else if (enemy.size === 60 && enemy.maxHealth === 100 && enemy.speed === 100) {
           userHealth = Math.max(0, userHealth - 500);
-        } else if (enemy.size === 40 && enemy.health === 30 && enemy.speed === 60) {
-          // Skeleton Army (swarm, low HP)
+        } else if (enemy.size === 40 && enemy.maxHealth === 30 && enemy.speed === 60) {
           userHealth = Math.max(0, userHealth - 100);
-        } else if (enemy.size === 55 && enemy.health === 120 && enemy.speed === 50) {
-          // Baby Dragon (flying AoE)
+        } else if (enemy.size === 55 && enemy.maxHealth === 120 && enemy.speed === 50) {
           userHealth = Math.max(0, userHealth - 350);
-        } else if (enemy.size === 35 && enemy.health === 25 && enemy.speed === 90) {
-          // Minion Horde (air swarm)
+        } else if (enemy.size === 35 && enemy.maxHealth === 25 && enemy.speed === 90) {
           userHealth = Math.max(0, userHealth - 120);
-        } else if (enemy.size === 65 && enemy.health === 150 && enemy.speed === 30) {
-          // Balloon (flying nuke)
+        } else if (enemy.size === 65 && enemy.maxHealth === 150 && enemy.speed === 30) {
           userHealth = Math.max(0, userHealth - 800);
-        } else if (enemy.size === 50 && enemy.health === 80 && enemy.speed === 120) {
-          // Bandit (dashing unit)
+        } else if (enemy.size === 50 && enemy.maxHealth === 80 && enemy.speed === 120) {
           userHealth = Math.max(0, userHealth - 200);
-        } else if (enemy.size === 90 && enemy.health === 500 && enemy.speed === 15) {
-          // P.E.K.K.A (boss tank)
+        } else if (enemy.size === 90 && enemy.maxHealth === 500 && enemy.speed === 15) {
           userHealth = Math.max(0, userHealth - 1000);
-        } else if (enemy.size === 60 && enemy.health === 150 && enemy.speed === 35) {
-          // Witch (spawner)
+        } else if (enemy.size === 60 && enemy.maxHealth === 150 && enemy.speed === 35) {
           userHealth = Math.max(0, userHealth - 250);
-        } else if (enemy.size === 65 && enemy.health === 180 && enemy.speed === 80) {
-          // Ram Rider (hybrid speed unit)
+        } else if (enemy.size === 65 && enemy.maxHealth === 180 && enemy.speed === 80) {
           userHealth = Math.max(0, userHealth - 400);
-        } else if (enemy.size === 100 && enemy.health === 600 && enemy.speed === 20) {
-          // Lava Hound (air tank)
+        } else if (enemy.size === 100 && enemy.maxHealth === 600 && enemy.speed === 20) {
           userHealth = Math.max(0, userHealth - 700);
-        } else if (enemy.size === 70 && enemy.health === 200 && enemy.speed === 70) {
-          // Royal Ghost (stealth)
+        } else if (enemy.size === 70 && enemy.maxHealth === 200 && enemy.speed === 70) {
           userHealth = Math.max(0, userHealth - 300);
         }
-        updateUserHealthBar();
+        updateUserHealthBar(); // <-- Ensure health bar updates here!
         enemy.el.remove();
-        if (enemy.healthBarContainer) enemy.healthBarContainer.remove(); // Remove health bar
-        enemy.alive = false; // Mark as not alive to stop animation
+        if (enemy.healthBarContainer) enemy.healthBarContainer.remove();
+        enemy.alive = false;
         enemies.splice(enemies.indexOf(enemy), 1);
         return;
       }
@@ -785,21 +859,22 @@ Author: Lars, Darsh, Pradyun
     speed: 25,
     imageSrc: 'https://i.postimg.cc/G2qWD0nP/image-2025-05-14-110409784.png', // giant
     size: 80,
-    health: 300
+    health: 300,
+    coinReward: 120
   });
 
   // --- Tower Data ---
   const towerData = [
-    { name: 'Archer Tower', imageSrc: 'https://i.postimg.cc/TPZstVyP/image-2025-05-20-095201612.png', radius: 120 },
-    { name: 'Wizard Tower', imageSrc: 'https://i.postimg.cc/sx8GWg6b/image-2025-05-20-095324671.png', radius: 100 },
-    { name: 'Inferno Tower', imageSrc: 'https://i.postimg.cc/Y9vWCF8Q/image-2025-05-20-095600055.png', radius: 80 },
-    { name: 'Tesla Coil', imageSrc: 'https://i.postimg.cc/ZKtdJCNy/image-2025-05-20-095705631.png', radius: 110 },
-    { name: 'Bomb Tower', imageSrc: 'https://i.postimg.cc/JhnypXfS/image-2025-05-20-095832932.png', radius: 90 },
-    { name: 'Magic Tower', imageSrc: 'https://i.postimg.cc/sDmDbX4z/image-2025-05-20-100137225.png', radius: 105 },
-    { name: 'Freeze Tower', imageSrc: 'https://i.postimg.cc/jqQsJ59f/image-2025-05-20-100226131.png', radius: 95 },
-    { name: 'Hunter Nest', imageSrc: 'https://i.postimg.cc/P5chk8Lg/image-2025-05-20-100344794.png', radius: 100 },
-    { name: 'Lightning Obelisk', imageSrc: 'https://i.postimg.cc/br3cVGcF/image-2025-05-20-100433723.png', radius: 115 },
-    { name: 'Rage Beacon', imageSrc: 'https://i.postimg.cc/PfKgj89S/image-2025-05-20-100521354.png', radius: 130 },
+    { name: 'Archer Tower', imageSrc: 'https://i.postimg.cc/TPZstVyP/image-2025-05-20-095201612.png', radius: 120, cost: 120 },
+    { name: 'Wizard Tower', imageSrc: 'https://i.postimg.cc/sx8GWg6b/image-2025-05-20-095324671.png', radius: 100, cost: 220 },
+    { name: 'Inferno Tower', imageSrc: 'https://i.postimg.cc/Y9vWCF8Q/image-2025-05-20-095600055.png', radius: 80, cost: 350 },
+    { name: 'Tesla Coil', imageSrc: 'https://i.postimg.cc/ZKtdJCNy/image-2025-05-20-095705631.png', radius: 110, cost: 200 },
+    { name: 'Bomb Tower', imageSrc: 'https://i.postimg.cc/JhnypXfS/image-2025-05-20-095832932.png', radius: 90, cost: 180 },
+    { name: 'Magic Tower', imageSrc: 'https://i.postimg.cc/sDmDbX4z/image-2025-05-20-100137225.png', radius: 105, cost: 260 },
+    { name: 'Freeze Tower', imageSrc: 'https://i.postimg.cc/jqQsJ59f/image-2025-05-20-100226131.png', radius: 95, cost: 210 },
+    { name: 'Hunter Nest', imageSrc: 'https://i.postimg.cc/P5chk8Lg/image-2025-05-20-100344794.png', radius: 100, cost: 170 },
+    { name: 'Lightning Obelisk', imageSrc: 'https://i.postimg.cc/br3cVGcF/image-2025-05-20-100433723.png', radius: 115, cost: 320 },
+    { name: 'Rage Beacon', imageSrc: 'https://i.postimg.cc/PfKgj89S/image-2025-05-20-100521354.png', radius: 130, cost: 400 },
   ];
 
   const placedTowers = [];
@@ -891,7 +966,7 @@ Author: Lars, Darsh, Pradyun
       spriteCol.style.alignItems = 'center';
       const sprite = document.createElement('img');
       sprite.src = tower.imageSrc;
-      sprite.title = tower.name;
+      sprite.title = tower.name + " (" + tower.cost + " coins)";
       sprite.style.width = '48px';
       sprite.style.height = '48px';
       sprite.style.cursor = 'grab';
@@ -899,7 +974,15 @@ Author: Lars, Darsh, Pradyun
       sprite.ondragstart = e => {
         e.dataTransfer.setData('towerIdx', idx);
       };
+      // Show cost below sprite
+      const costLabel = document.createElement('span');
+      costLabel.textContent = tower.cost + "🪙";
+      costLabel.style.color = "#ffd700";
+      costLabel.style.fontWeight = "bold";
+      costLabel.style.fontSize = "15px";
+      costLabel.style.marginTop = "2px";
       spriteCol.appendChild(sprite);
+      spriteCol.appendChild(costLabel);
       spriteRow.appendChild(spriteCol);
     });
     menu.appendChild(spriteRow);
@@ -923,6 +1006,11 @@ Author: Lars, Darsh, Pradyun
       alert('Cannot place tower here! Too close to path.');
       return;
     }
+    if (coins < tower.cost) {
+      alert('Not enough coins! (' + tower.cost + ' needed)');
+      return;
+    }
+    spendCoins(tower.cost);
     placedTowers.push({ ...tower, x, y });
     renderTowers();
   };
@@ -1018,4 +1106,21 @@ Author: Lars, Darsh, Pradyun
     setTimeout(towerAttackLoop, TOWER_ATTACK_INTERVAL);
   }
   towerAttackLoop();
+
+  window.addEventListener('DOMContentLoaded', () => {
+    // Move coin display to be relative to the gameContainer (top right of map)
+    const coinDisplay = document.getElementById('coinDisplay');
+    const gameContainer = document.getElementById('gameContainer');
+    function positionCoinDisplay() {
+      const rect = gameContainer.getBoundingClientRect();
+      coinDisplay.style.position = 'absolute';
+      coinDisplay.style.left = (gameContainer.offsetWidth - coinDisplay.offsetWidth - 24) + 'px';
+      coinDisplay.style.top = '24px';
+      coinDisplay.style.right = '';
+      coinDisplay.style.pointerEvents = 'none';
+      gameContainer.appendChild(coinDisplay);
+    }
+    positionCoinDisplay();
+    window.addEventListener('resize', positionCoinDisplay);
+  });
 </script>
