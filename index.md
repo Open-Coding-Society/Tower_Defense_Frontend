@@ -76,13 +76,13 @@ Author: Lars, Darsh, Pradyun
   const gameContainer = document.getElementById("gameContainer");
 
   // 🧪 Debug path points — comment out to hide
-  pathPoints.forEach(point => {
-    const dot = document.createElement("div");
-    dot.className = "path-point";
-    dot.style.left = `${point.x}px`;
-    dot.style.top = `${point.y}px`;
-    gameContainer.appendChild(dot);
-  });
+ // pathPoints.forEach(point => {
+ //   const dot = document.createElement("div");
+ //   dot.className = "path-point";
+ //   dot.style.left = `${point.x}px`;
+ //   dot.style.top = `${point.y}px`;
+ //   gameContainer.appendChild(dot);
+ // });
 
   const enemies = [];
 
