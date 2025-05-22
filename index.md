@@ -113,7 +113,12 @@ Author: Lars, Darsh, Pradyun
   // --- Royal Ghost Reveal Radius ---
   const ROYAL_GHOST_REVEAL_RADIUS = 100;
 
-  function spawnEnemy({ imageSrc, speed, size, health, customStart, coinReward, isRoyalGhost }) {
+  // List of air troop names for bomb tower targeting
+  const AIR_TROOPS = [
+    'Baby Dragon', 'Minion Horde', 'Balloon', 'Lava Hound'
+  ];
+
+  function spawnEnemy({ imageSrc, speed, size, health, customStart, coinReward, isRoyalGhost, troopName }) {
     const img = document.createElement("img");
     img.src = imageSrc;
     img.className = "enemy";
@@ -168,6 +173,7 @@ Author: Lars, Darsh, Pradyun
       alive: true,
       coinReward: coinReward || 10, // Default if not specified
       isRoyalGhost: !!isRoyalGhost,
+      troopName: troopName || null,
       takeDamage(amount) {
         this.health = Math.max(0, this.health - amount);
         this.updateHealthBar();
@@ -272,7 +278,8 @@ Author: Lars, Darsh, Pradyun
               imageSrc: 'https://i.postimg.cc/J7Z3cnmp/image-2025-05-16-103314524.png',
               size: 40,
               health: 30,
-              coinReward: 8
+              coinReward: 8,
+              troopName: 'Skeleton Army'
             });
           }, 120);
           if (localSkeletonCount < 64) {
@@ -285,7 +292,8 @@ Author: Lars, Darsh, Pradyun
               imageSrc: 'https://i.postimg.cc/PxZD43GC/image-2025-05-16-103616663.png',
               size: 35,
               health: 25,
-              coinReward: 6
+              coinReward: 6,
+              troopName: 'Minion Horde'
             });
           }, 100);
           if (localMinionCount < 5) localMinionCount += 1;
@@ -320,7 +328,8 @@ Author: Lars, Darsh, Pradyun
         imageSrc: 'https://i.postimg.cc/G2qWD0nP/image-2025-05-14-110409784.png',
         size: 80,
         health: 300,
-        coinReward: 120
+        coinReward: 120,
+        troopName: 'Giant'
       });
     }, "giant");
 
@@ -331,7 +340,8 @@ Author: Lars, Darsh, Pradyun
         imageSrc: 'https://i.postimg.cc/4NxrrzmL/image-2025-05-16-101734632.png',
         size: 60,
         health: 100,
-        coinReward: 80
+        coinReward: 80,
+        troopName: 'Hog Rider'
       });
     }, "hog");
 
@@ -345,7 +355,8 @@ Author: Lars, Darsh, Pradyun
         imageSrc: 'https://i.postimg.cc/zfyKLD0S/image-2025-05-16-103451709.png',
         size: 55,
         health: 120,
-        coinReward: 90
+        coinReward: 90,
+        troopName: 'Baby Dragon'
       });
     }, "babyDragon");
 
@@ -359,7 +370,8 @@ Author: Lars, Darsh, Pradyun
         imageSrc: 'https://i.postimg.cc/28TZ2Lt7/image-2025-05-16-103738864.png',
         size: 65,
         health: 150,
-        coinReward: 150
+        coinReward: 150,
+        troopName: 'Balloon'
       });
     }, "balloon");
 
@@ -370,7 +382,8 @@ Author: Lars, Darsh, Pradyun
         imageSrc: 'https://i.postimg.cc/j2cLgBMS/image-2025-05-16-103917837.png',
         size: 50,
         health: 80,
-        coinReward: 60
+        coinReward: 60,
+        troopName: 'Bandit'
       });
     }, "bandit");
 
@@ -381,7 +394,8 @@ Author: Lars, Darsh, Pradyun
         imageSrc: 'https://i.postimg.cc/FsnKYyq8/image-2025-05-16-104224204.png',
         size: 90,
         health: 500,
-        coinReward: 300
+        coinReward: 300,
+        troopName: 'P.E.K.K.A'
       });
     }, "pekka");
 
@@ -393,7 +407,8 @@ Author: Lars, Darsh, Pradyun
         imageSrc: 'https://i.postimg.cc/YqVprpLw/image-2025-05-16-104350767.png',
         size: 60,
         health: 150,
-        coinReward: 100
+        coinReward: 100,
+        troopName: 'Witch'
       };
       // Spawn the witch and get a reference to the enemy object
       let witchEnemyObj = null;
@@ -443,6 +458,7 @@ Author: Lars, Darsh, Pradyun
           lastTimestamp: null,
           alive: true,
           coinReward: witchEnemyConfig.coinReward,
+          troopName: witchEnemyConfig.troopName,
           takeDamage(amount) {
             this.health = Math.max(0, this.health - amount);
             this.updateHealthBar();
@@ -528,6 +544,7 @@ Author: Lars, Darsh, Pradyun
             health: 30,
             coinReward: 8,
             customStart: start,
+            troopName: 'Skeleton Army',
             // Pass custom path index info
             _witchPathIndex: closestIndex
           };
@@ -576,6 +593,7 @@ Author: Lars, Darsh, Pradyun
             lastTimestamp: null,
             alive: true,
             coinReward: skeleton.coinReward,
+            troopName: skeleton.troopName,
             takeDamage(amount) {
               this.health = Math.max(0, this.health - amount);
               this.updateHealthBar();
@@ -620,7 +638,8 @@ Author: Lars, Darsh, Pradyun
         imageSrc: 'https://i.postimg.cc/YCYwtQw1/image-2025-05-16-104501378.png',
         size: 65,
         health: 180,
-        coinReward: 110
+        coinReward: 110,
+        troopName: 'Ram Rider'
       });
     }, "ram");
 
@@ -631,7 +650,8 @@ Author: Lars, Darsh, Pradyun
         imageSrc: 'https://i.postimg.cc/0QH4YNsk/image-2025-05-16-104632815.png',
         size: 100,
         health: 600,
-        coinReward: 250
+        coinReward: 250,
+        troopName: 'Lava Hound'
       });
     }, "lava");
 
@@ -643,7 +663,8 @@ Author: Lars, Darsh, Pradyun
         size: 70,
         health: 200,
         coinReward: 90,
-        isRoyalGhost: true
+        isRoyalGhost: true,
+        troopName: 'Royal Ghost'
       });
     }, "ghost");
   }
@@ -729,6 +750,10 @@ Author: Lars, Darsh, Pradyun
           if (e.healthBarContainer) e.healthBarContainer.remove();
         });
         enemies.length = 0; // This ensures no invisible enemies remain
+        // Remove all towers and their radii
+        document.querySelectorAll('.tower').forEach(el => el.remove());
+        document.querySelectorAll('.tower-radius').forEach(el => el.remove());
+        placedTowers.length = 0; // Clear placed towers array
         // Reset user health
         userHealth = userMaxHealth;
         updateUserHealthBar();
@@ -745,7 +770,8 @@ Author: Lars, Darsh, Pradyun
           speed: 25,
           imageSrc: 'https://i.postimg.cc/G2qWD0nP/image-2025-05-14-110409784.png',
           size: 80,
-          health: 300
+          health: 300,
+          troopName: 'Giant'
         });
         // Reset coins
         coins = 500;
@@ -860,7 +886,8 @@ Author: Lars, Darsh, Pradyun
     imageSrc: 'https://i.postimg.cc/G2qWD0nP/image-2025-05-14-110409784.png', // giant
     size: 80,
     health: 300,
-    coinReward: 120
+    coinReward: 120,
+    troopName: 'Giant'
   });
 
   // --- Tower Data ---
@@ -1017,7 +1044,7 @@ Author: Lars, Darsh, Pradyun
 
   // --- Tower Attack Logic ---
   const TOWER_ATTACK_INTERVAL = 500; // ms
-  const INFERNO_RAMP = [4, 8, 16, 32, 64]; // Reduced damage
+  const INFERNO_RAMP = [4, 6, 8, 12, 18]; // Slower and less aggressive ramp-up
   const ARCHER_DAMAGE = 30;
   const BOMB_DAMAGE = 18; // Reduced damage
   const BOMB_RADIUS = 50;
@@ -1078,12 +1105,17 @@ Author: Lars, Darsh, Pradyun
         });
         if (nearest) {
           // Ramp up damage if same target, else reset
-          let state = towerAttackState.get(tower) || { target: null, ramp: 0 };
+          let state = towerAttackState.get(tower) || { target: null, ramp: 0, lastTime: 0 };
           if (state.target === nearest) {
-            state.ramp = Math.min(state.ramp + 1, INFERNO_RAMP.length - 1);
+            // Only ramp up every 2 attack intervals (slower ramp)
+            if (!state.lastTime || performance.now() - state.lastTime > TOWER_ATTACK_INTERVAL * 2) {
+              state.ramp = Math.min(state.ramp + 1, INFERNO_RAMP.length - 1);
+              state.lastTime = performance.now();
+            }
           } else {
             state.target = nearest;
             state.ramp = 0;
+            state.lastTime = performance.now();
           }
           nearest.takeDamage(INFERNO_RAMP[state.ramp]);
           towerAttackState.set(tower, state);
@@ -1120,12 +1152,14 @@ Author: Lars, Darsh, Pradyun
           }
         }
       } else if (tower.name === 'Bomb Tower') {
-        // Bomb Tower: splash damage
+        // Bomb Tower: splash damage, does NOT attack air troops
         let lastShot = tower.lastShot || 0;
         if (performance.now() - lastShot > 1200) {
           let nearest = null, minDist = Infinity;
           enemies.forEach(enemy => {
             if (!enemy.alive) return;
+            // Only target ground troops
+            if (AIR_TROOPS.includes(enemy.troopName)) return;
             const dx = tower.x - enemy.x;
             const dy = tower.y - enemy.y;
             const dist = Math.sqrt(dx*dx + dy*dy);
@@ -1141,11 +1175,12 @@ Author: Lars, Darsh, Pradyun
               fromY: tower.y,
               toX: nearest.x,
               toY: nearest.y,
-              imgSrc: ARCHER_ARROW_IMG, // You can replace with a bomb image if available
+              imgSrc: ARCHER_ARROW_IMG, // Replace with bomb image later
               speed: 400,
               onHit: () => {
                 enemies.forEach(enemy2 => {
                   if (!enemy2.alive) return;
+                  if (AIR_TROOPS.includes(enemy2.troopName)) return;
                   const dx = nearest.x - enemy2.x;
                   const dy = nearest.y - enemy2.y;
                   if (Math.sqrt(dx*dx + dy*dy) < BOMB_RADIUS) {
