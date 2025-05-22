@@ -1017,12 +1017,49 @@ Author: Lars, Darsh, Pradyun
 
   // --- Tower Attack Logic ---
   const TOWER_ATTACK_INTERVAL = 500; // ms
-  const INFERNO_RAMP = [10, 20, 40, 80, 160]; // Damage ramps up
+  const INFERNO_RAMP = [4, 8, 16, 32, 64]; // Reduced damage
   const ARCHER_DAMAGE = 30;
-  const BOMB_DAMAGE = 50;
+  const BOMB_DAMAGE = 18; // Reduced damage
   const BOMB_RADIUS = 50;
 
+  const ARCHER_ARROW_IMG = 'https://i.postimg.cc/gjznhbcv/image-2025-05-21-114040090.png';
+  const WIZARD_FIREBALL_IMG = 'https://i.postimg.cc/TwGw8vDZ/image-2025-05-21-114249663.png';
+
   const towerAttackState = new Map(); // For inferno ramping
+
+  function spawnProjectile({fromX, fromY, toX, toY, imgSrc, speed, onHit}) {
+    const img = document.createElement('img');
+    img.src = imgSrc;
+    img.style.position = 'absolute';
+    img.style.left = fromX + 'px';
+    img.style.top = fromY + 'px';
+    img.style.width = '40px'; // Increased size
+    img.style.height = '40px'; // Increased size
+    img.style.zIndex = 20;
+    img.className = 'projectile';
+    gameContainer.appendChild(img);
+    const dx = toX - fromX;
+    const dy = toY - fromY;
+    const dist = Math.sqrt(dx*dx + dy*dy);
+    const duration = dist / speed * 1000;
+    let start = null;
+    function animate(ts) {
+      if (!start) start = ts;
+      const elapsed = ts - start;
+      const t = Math.min(1, elapsed / duration);
+      const x = fromX + dx * t;
+      const y = fromY + dy * t;
+      img.style.left = x + 'px';
+      img.style.top = y + 'px';
+      if (t < 1) {
+        requestAnimationFrame(animate);
+      } else {
+        img.remove();
+        if (onHit) onHit();
+      }
+    }
+    requestAnimationFrame(animate);
+  }
 
   function towerAttackLoop() {
     placedTowers.forEach(tower => {
@@ -1069,7 +1106,16 @@ Author: Lars, Darsh, Pradyun
             }
           });
           if (nearest) {
-            nearest.takeDamage(ARCHER_DAMAGE);
+            // Arrow projectile
+            spawnProjectile({
+              fromX: tower.x,
+              fromY: tower.y,
+              toX: nearest.x,
+              toY: nearest.y,
+              imgSrc: ARCHER_ARROW_IMG,
+              speed: 600,
+              onHit: () => nearest.takeDamage(ARCHER_DAMAGE)
+            });
             tower.lastShot = performance.now();
           }
         }
@@ -1089,14 +1135,52 @@ Author: Lars, Darsh, Pradyun
             }
           });
           if (nearest) {
-            // Splash: damage all enemies within BOMB_RADIUS of target
-            enemies.forEach(enemy2 => {
-              if (!enemy2.alive) return;
-              const dx = nearest.x - enemy2.x;
-              const dy = nearest.y - enemy2.y;
-              if (Math.sqrt(dx*dx + dy*dy) < BOMB_RADIUS) {
-                enemy2.takeDamage(BOMB_DAMAGE);
+            // Bomb projectile
+            spawnProjectile({
+              fromX: tower.x,
+              fromY: tower.y,
+              toX: nearest.x,
+              toY: nearest.y,
+              imgSrc: ARCHER_ARROW_IMG, // You can replace with a bomb image if available
+              speed: 400,
+              onHit: () => {
+                enemies.forEach(enemy2 => {
+                  if (!enemy2.alive) return;
+                  const dx = nearest.x - enemy2.x;
+                  const dy = nearest.y - enemy2.y;
+                  if (Math.sqrt(dx*dx + dy*dy) < BOMB_RADIUS) {
+                    enemy2.takeDamage(BOMB_DAMAGE);
+                  }
+                });
               }
+            });
+            tower.lastShot = performance.now();
+          }
+        }
+      } else if (tower.name === 'Wizard Tower') {
+        // Wizard Tower: fireball projectile
+        let lastShot = tower.lastShot || 0;
+        if (performance.now() - lastShot > 1200) {
+          let nearest = null, minDist = Infinity;
+          enemies.forEach(enemy => {
+            if (!enemy.alive) return;
+            const dx = tower.x - enemy.x;
+            const dy = tower.y - enemy.y;
+            const dist = Math.sqrt(dx*dx + dy*dy);
+            if (dist < tower.radius && dist < minDist) {
+              nearest = enemy;
+              minDist = dist;
+            }
+          });
+          if (nearest) {
+            spawnProjectile({
+              fromX: tower.x,
+              fromY: tower.y,
+              toX: nearest.x,
+              toY: nearest.y,
+              imgSrc: WIZARD_FIREBALL_IMG,
+              speed: 400,
+              onHit: () => nearest.takeDamage(60)
             });
             tower.lastShot = performance.now();
           }
