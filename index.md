@@ -214,6 +214,10 @@ Author: Lars, Darsh, Pradyun
   let skeletonSpawnCount = 1; // Start with 1 skeleton per spawn
   let minionSpawnCount = 1;   // Start with 1 minion per spawn
 
+  // Track skeleton and minion counts globally for proper reset
+  let globalSkeletonCount = 1;
+  let globalMinionCount = 1;
+
   // Store base intervals for each troop type so we can reset them
   const baseIntervals = {
     giant: 10000,
@@ -241,6 +245,8 @@ Author: Lars, Darsh, Pradyun
     // Reset spawn counts and intervals
     skeletonSpawnCount = 1;
     minionSpawnCount = 1;
+    globalSkeletonCount = 1;
+    globalMinionCount = 1;
     currentIntervals = { ...baseIntervals };
   }
 
@@ -267,12 +273,9 @@ Author: Lars, Darsh, Pradyun
     // Helper for dynamic spawn
     function spawnLoop(spawnFn, intervalKey, onSpawn) {
       let interval = currentIntervals[intervalKey];
-      let localSkeletonCount = 1;
-      let localMinionCount = 1;
       function loop() {
-        // For skeletons and minions, use local count so it resets on restart
         if (intervalKey === "skeleton") {
-          spawnGroup(localSkeletonCount, () => {
+          spawnGroup(globalSkeletonCount, () => {
             spawnEnemy({
               speed: 60,
               imageSrc: 'https://i.postimg.cc/J7Z3cnmp/image-2025-05-16-103314524.png',
@@ -282,11 +285,11 @@ Author: Lars, Darsh, Pradyun
               troopName: 'Skeleton Army'
             });
           }, 120);
-          if (localSkeletonCount < 64) {
-            localSkeletonCount = Math.min(localSkeletonCount * 2, 64);
+          if (globalSkeletonCount < 64) {
+            globalSkeletonCount = Math.min(globalSkeletonCount * 2, 64);
           }
         } else if (intervalKey === "minion") {
-          spawnGroup(localMinionCount, () => {
+          spawnGroup(globalMinionCount, () => {
             spawnEnemy({
               speed: 90,
               imageSrc: 'https://i.postimg.cc/PxZD43GC/image-2025-05-16-103616663.png',
@@ -296,7 +299,7 @@ Author: Lars, Darsh, Pradyun
               troopName: 'Minion Horde'
             });
           }, 100);
-          if (localMinionCount < 5) localMinionCount += 1;
+          if (globalMinionCount < 5) globalMinionCount += 1;
         } else {
           if (onSpawn) onSpawn();
           spawnFn();
@@ -1051,6 +1054,7 @@ Author: Lars, Darsh, Pradyun
 
   const ARCHER_ARROW_IMG = 'https://i.postimg.cc/gjznhbcv/image-2025-05-21-114040090.png';
   const WIZARD_FIREBALL_IMG = 'https://i.postimg.cc/TwGw8vDZ/image-2025-05-21-114249663.png';
+  const BOMB_PROJECTILE_IMG = 'https://i.postimg.cc/L6qPCWkV/download-removebg-preview.png';
 
   const towerAttackState = new Map(); // For inferno ramping
 
@@ -1175,7 +1179,7 @@ Author: Lars, Darsh, Pradyun
               fromY: tower.y,
               toX: nearest.x,
               toY: nearest.y,
-              imgSrc: ARCHER_ARROW_IMG, // Replace with bomb image later
+              imgSrc: BOMB_PROJECTILE_IMG,
               speed: 400,
               onHit: () => {
                 enemies.forEach(enemy2 => {
