@@ -1,9 +1,9 @@
-title: Genome Gamers
-description: "Pilot City Project: A platform for gamers to share their experiences and connect with others."
+title: Clash Royale Themed Tower Defense Game
+description: "Passion Project: Tower Defense Game"
 owner_name: Pradyun Gowda
 github_username: Prad-coder
-github_repo: "GenomeGamersFrontend" 
-baseurl: "/GenomeGamersFrontend"
+github_repo: "BarrierOps-Frontend" 
+baseurl: "/BarrierOps-Frontend"
 future: true
 remote_theme: jekyll/minima
 minima:
