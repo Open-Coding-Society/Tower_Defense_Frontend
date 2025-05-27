@@ -71,8 +71,8 @@ Author: Lars, Darsh, Pradyun
   // --- Constants ---
   const AIR_TROOPS = ['Baby Dragon', 'Minion Horde', 'Balloon', 'Lava Hound'];
   const TOWER_ATTACK_INTERVAL = 500;
-  const INFERNO_RAMP = [4, 6, 8, 12, 18];
-  const ARCHER_DAMAGE = 30;
+  const INFERNO_RAMP = [6, 12, 24, 48, 96]; // Increased scaling for inferno tower
+  const ARCHER_DAMAGE = 18; // Reduced archer tower damage
   const BOMB_DAMAGE = 18;
   const BOMB_RADIUS = 50;
   const ARCHER_ARROW_IMG = 'https://i.postimg.cc/gjznhbcv/image-2025-05-21-114040090.png';
