@@ -62,836 +62,30 @@ Author: Lars, Darsh, Pradyun
 <div id="gameContainer"></div>
 
 <script>
-  // --- Coin System ---
-  let coins = 500; // Starting coins
-  const coinAmountEl = document.getElementById("coinAmount");
-  function updateCoinDisplay() {
-    coinAmountEl.textContent = coins.toLocaleString();
-    // Auto-expand for large numbers
-    coinAmountEl.parentElement.style.minWidth = (80 + Math.max(0, (coinAmountEl.textContent.length - 4) * 16)) + "px";
-  }
-  updateCoinDisplay();
+  // --- OOP Refactor ---
 
-  function addCoins(amount) {
-    coins += amount;
-    updateCoinDisplay();
-  }
-  function spendCoins(amount) {
-    coins -= amount;
-    updateCoinDisplay();
-  }
+  // --- Utility ---
+  function lerp(a, b, t) { return a + (b - a) * t; }
+  function dist(x1, y1, x2, y2) { return Math.hypot(x2 - x1, y2 - y1); }
 
+  // --- Constants ---
+  const AIR_TROOPS = ['Baby Dragon', 'Minion Horde', 'Balloon', 'Lava Hound'];
+  const TOWER_ATTACK_INTERVAL = 500;
+  const INFERNO_RAMP = [4, 6, 8, 12, 18];
+  const ARCHER_DAMAGE = 30;
+  const BOMB_DAMAGE = 18;
+  const BOMB_RADIUS = 50;
+  const ARCHER_ARROW_IMG = 'https://i.postimg.cc/gjznhbcv/image-2025-05-21-114040090.png';
+  const WIZARD_FIREBALL_IMG = 'https://i.postimg.cc/TwGw8vDZ/image-2025-05-21-114249663.png';
+  const BOMB_PROJECTILE_IMG = 'https://i.postimg.cc/L6qPCWkV/download-removebg-preview.png';
+
+  // --- Path Points ---
   const pathPoints = [
-    { x: 100, y: 245 },
-    { x: 500, y: 245 },
-    { x: 500, y: 100 },
-    { x: 328, y: 100 },
-    { x: 328, y: 475 },
-    { x: 145, y: 475 },
-    { x: 145, y: 350 },
-    { x: 625, y: 350 },
-    { x: 625, y: 193 },
-    { x: 745, y: 193 },
-    { x: 745, y: 442 },
-    { x: 433, y: 442 },
+    { x: 100, y: 245 }, { x: 500, y: 245 }, { x: 500, y: 100 }, { x: 328, y: 100 },
+    { x: 328, y: 475 }, { x: 145, y: 475 }, { x: 145, y: 350 }, { x: 625, y: 350 },
+    { x: 625, y: 193 }, { x: 745, y: 193 }, { x: 745, y: 442 }, { x: 433, y: 442 },
     { x: 433, y: 510 },
   ];
-
-  const gameContainer = document.getElementById("gameContainer");
-
-  // 🧪 Debug path points — comment out to hide
- // pathPoints.forEach(point => {
- //   const dot = document.createElement("div");
- //   dot.className = "path-point";
- //   dot.style.left = `${point.x}px`;
- //   dot.style.top = `${point.y}px`;
- //   gameContainer.appendChild(dot);
- // });
-
-  const enemies = [];
-
-  // --- Royal Ghost Reveal Radius ---
-  const ROYAL_GHOST_REVEAL_RADIUS = 100;
-
-  // List of air troop names for bomb tower targeting
-  const AIR_TROOPS = [
-    'Baby Dragon', 'Minion Horde', 'Balloon', 'Lava Hound'
-  ];
-
-  function spawnEnemy({ imageSrc, speed, size, health, customStart, coinReward, isRoyalGhost, troopName }) {
-    const img = document.createElement("img");
-    img.src = imageSrc;
-    img.className = "enemy";
-    img.style.width = `${size}px`;
-    img.style.height = `${size}px`;
-    if (isRoyalGhost) {
-      img.style.opacity = "0.2";
-      img.dataset.royalGhost = "1";
-    }
-
-    // Create health bar container
-    const healthBarContainer = document.createElement("div");
-    healthBarContainer.style.position = "absolute";
-    healthBarContainer.style.width = `${size}px`;
-    healthBarContainer.style.height = "8px";
-    healthBarContainer.style.top = "0px";
-    healthBarContainer.style.left = "0px";
-    healthBarContainer.style.pointerEvents = "none";
-    healthBarContainer.style.zIndex = "20";
-    // Health bar background
-    healthBarContainer.style.background = "rgba(0,0,0,0.5)";
-    healthBarContainer.style.borderRadius = "4px";
-    // Create health bar fill
-    const healthBar = document.createElement("div");
-    healthBar.style.height = "100%";
-    healthBar.style.width = "100%";
-    healthBar.style.background = "linear-gradient(90deg, #4caf50, #a5d6a7)";
-    healthBar.style.borderRadius = "4px";
-    healthBarContainer.appendChild(healthBar);
-
-    gameContainer.appendChild(img);
-    gameContainer.appendChild(healthBarContainer);
-
-    // Use custom start if provided (for witch skeletons)
-    const startPoint = customStart ? customStart : pathPoints[0];
-    const enemy = {
-      el: img,
-      healthBarContainer,
-      healthBar,
-      x: startPoint.x,
-      y: startPoint.y,
-      speed,
-      size,
-      health,
-      maxHealth: health,
-      currentIndex: 0,
-      progress: 0,
-      segmentDistance: null,
-      start: startPoint,
-      end: pathPoints[1],
-      lastTimestamp: null,
-      alive: true,
-      coinReward: coinReward || 10, // Default if not specified
-      isRoyalGhost: !!isRoyalGhost,
-      troopName: troopName || null,
-      takeDamage(amount) {
-        this.health = Math.max(0, this.health - amount);
-        this.updateHealthBar();
-        if (this.health === 0) {
-          this.alive = false;
-          this.el.remove();
-          this.healthBarContainer.remove();
-          enemies.splice(enemies.indexOf(this), 1);
-          if (this.coinReward) addCoins(this.coinReward);
-        }
-      },
-      updateHealthBar() {
-        const percent = Math.max(0, this.health / this.maxHealth);
-        this.healthBar.style.width = `${percent * 100}%`;
-        if (percent > 0.5) {
-          this.healthBar.style.background = "linear-gradient(90deg, #4caf50, #a5d6a7)";
-        } else if (percent > 0.2) {
-          this.healthBar.style.background = "linear-gradient(90deg, #ffc107, #ffe082)";
-        } else {
-          this.healthBar.style.background = "linear-gradient(90deg, #f44336, #ff8a65)";
-        }
-      }
-    };
-
-    enemy.segmentDistance = Math.hypot(
-      enemy.end.x - enemy.start.x,
-      enemy.end.y - enemy.start.y
-    );
-
-    enemy.updateHealthBar();
-
-    enemies.push(enemy);
-    requestAnimationFrame(ts => moveEnemy(enemy, ts));
-  }
-
-  // Store interval IDs for clearing on restart
-  let enemySpawnTimeouts = [];
-  let skeletonSpawnCount = 1; // Start with 1 skeleton per spawn
-  let minionSpawnCount = 1;   // Start with 1 minion per spawn
-
-  // Track skeleton and minion counts globally for proper reset
-  let globalSkeletonCount = 1;
-  let globalMinionCount = 1;
-
-  // Store base intervals for each troop type so we can reset them
-  const baseIntervals = {
-    giant: 10000,
-    hog: 15000,
-    skeleton: 18000,
-    babyDragon: 22000,
-    minion: 20000,
-    balloon: 30000,
-    bandit: 17000,
-    pekka: 40000,
-    witch: 25000,
-    ram: 28000,
-    lava: 45000,
-    ghost: 35000
-  };
-
-  let currentIntervals = { ...baseIntervals };
-
-  function clearEnemySpawns() {
-    enemySpawnTimeouts.forEach(id => clearTimeout(id));
-    enemySpawnTimeouts = [];
-  }
-
-  function resetSpawnState() {
-    // Reset spawn counts and intervals
-    skeletonSpawnCount = 1;
-    minionSpawnCount = 1;
-    globalSkeletonCount = 1;
-    globalMinionCount = 1;
-    currentIntervals = { ...baseIntervals };
-  }
-
-  // --- Spawn Interval Minimum Cap ---
-  const MIN_SPAWN_INTERVALS = {
-    giant: 2000,
-    hog: 2000,
-    skeleton: 2000,
-    babyDragon: 2500,
-    minion: 2000,
-    balloon: 3000,
-    bandit: 2000,
-    pekka: 5000,
-    witch: 4000,
-    ram: 2000,
-    lava: 6000,
-    ghost: 2000
-  };
-
-  function startEnemySpawns() {
-    clearEnemySpawns();
-    resetSpawnState();
-
-    // Helper for dynamic spawn
-    function spawnLoop(spawnFn, intervalKey, onSpawn) {
-      let interval = currentIntervals[intervalKey];
-      function loop() {
-        if (intervalKey === "skeleton") {
-          spawnGroup(globalSkeletonCount, () => {
-            spawnEnemy({
-              speed: 60,
-              imageSrc: 'https://i.postimg.cc/J7Z3cnmp/image-2025-05-16-103314524.png',
-              size: 40,
-              health: 30,
-              coinReward: 8,
-              troopName: 'Skeleton Army'
-            });
-          }, 120);
-          if (globalSkeletonCount < 64) {
-            globalSkeletonCount = Math.min(globalSkeletonCount * 2, 64);
-          }
-        } else if (intervalKey === "minion") {
-          spawnGroup(globalMinionCount, () => {
-            spawnEnemy({
-              speed: 90,
-              imageSrc: 'https://i.postimg.cc/PxZD43GC/image-2025-05-16-103616663.png',
-              size: 35,
-              health: 25,
-              coinReward: 6,
-              troopName: 'Minion Horde'
-            });
-          }, 100);
-          if (globalMinionCount < 5) globalMinionCount += 1;
-        } else {
-          if (onSpawn) onSpawn();
-          spawnFn();
-        }
-        interval = Math.max(interval * 0.97, MIN_SPAWN_INTERVALS[intervalKey] || 2000);
-        currentIntervals[intervalKey] = interval;
-        enemySpawnTimeouts.push(setTimeout(loop, interval));
-      }
-      enemySpawnTimeouts.push(setTimeout(loop, interval));
-    }
-
-    // Helper to spawn a group with a delay between each
-    function spawnGroup(count, spawnFn, delay = 150) {
-      let spawned = 0;
-      function spawnNext() {
-        if (spawned < count) {
-          spawnFn(spawned);
-          spawned++;
-          setTimeout(spawnNext, delay);
-        }
-      }
-      spawnNext();
-    }
-
-    // Giant
-    spawnLoop(() => {
-      spawnEnemy({
-        speed: 25,
-        imageSrc: 'https://i.postimg.cc/G2qWD0nP/image-2025-05-14-110409784.png',
-        size: 80,
-        health: 300,
-        coinReward: 120,
-        troopName: 'Giant'
-      });
-    }, "giant");
-
-    // Hog Rider
-    spawnLoop(() => {
-      spawnEnemy({
-        speed: 100,
-        imageSrc: 'https://i.postimg.cc/4NxrrzmL/image-2025-05-16-101734632.png',
-        size: 60,
-        health: 100,
-        coinReward: 80,
-        troopName: 'Hog Rider'
-      });
-    }, "hog");
-
-    // Skeleton Army (handled in spawnLoop above)
-    spawnLoop(null, "skeleton");
-
-    // Baby Dragon
-    spawnLoop(() => {
-      spawnEnemy({
-        speed: 50,
-        imageSrc: 'https://i.postimg.cc/zfyKLD0S/image-2025-05-16-103451709.png',
-        size: 55,
-        health: 120,
-        coinReward: 90,
-        troopName: 'Baby Dragon'
-      });
-    }, "babyDragon");
-
-    // Minion Horde (handled in spawnLoop above)
-    spawnLoop(null, "minion");
-
-    // Balloon
-    spawnLoop(() => {
-      spawnEnemy({
-        speed: 30,
-        imageSrc: 'https://i.postimg.cc/28TZ2Lt7/image-2025-05-16-103738864.png',
-        size: 65,
-        health: 150,
-        coinReward: 150,
-        troopName: 'Balloon'
-      });
-    }, "balloon");
-
-    // Bandit
-    spawnLoop(() => {
-      spawnEnemy({
-        speed: 120,
-        imageSrc: 'https://i.postimg.cc/j2cLgBMS/image-2025-05-16-103917837.png',
-        size: 50,
-        health: 80,
-        coinReward: 60,
-        troopName: 'Bandit'
-      });
-    }, "bandit");
-
-    // P.E.K.K.A
-    spawnLoop(() => {
-      spawnEnemy({
-        speed: 15,
-        imageSrc: 'https://i.postimg.cc/FsnKYyq8/image-2025-05-16-104224204.png',
-        size: 90,
-        health: 500,
-        coinReward: 300,
-        troopName: 'P.E.K.K.A'
-      });
-    }, "pekka");
-
-    // Witch
-    spawnLoop(() => {
-      // Spawn the witch
-      const witchEnemyConfig = {
-        speed: 35,
-        imageSrc: 'https://i.postimg.cc/YqVprpLw/image-2025-05-16-104350767.png',
-        size: 60,
-        health: 150,
-        coinReward: 100,
-        troopName: 'Witch'
-      };
-      // Spawn the witch and get a reference to the enemy object
-      let witchEnemyObj = null;
-      function spawnWitchAndTrack() {
-        const img = document.createElement("img");
-        img.src = witchEnemyConfig.imageSrc;
-        img.className = "enemy";
-        img.style.width = `${witchEnemyConfig.size}px`;
-        img.style.height = `${witchEnemyConfig.size}px`;
-
-        const healthBarContainer = document.createElement("div");
-        healthBarContainer.style.position = "absolute";
-        healthBarContainer.style.width = `${witchEnemyConfig.size}px`;
-        healthBarContainer.style.height = "8px";
-        healthBarContainer.style.top = "0px";
-        healthBarContainer.style.left = "0px";
-        healthBarContainer.style.pointerEvents = "none";
-        healthBarContainer.style.zIndex = "20";
-        healthBarContainer.style.background = "rgba(0,0,0,0.5)";
-        healthBarContainer.style.borderRadius = "4px";
-        const healthBar = document.createElement("div");
-        healthBar.style.height = "100%";
-        healthBar.style.width = "100%";
-        healthBar.style.background = "linear-gradient(90deg, #4caf50, #a5d6a7)";
-        healthBar.style.borderRadius = "4px";
-        healthBarContainer.appendChild(healthBar);
-
-        gameContainer.appendChild(img);
-        gameContainer.appendChild(healthBarContainer);
-
-        const startPoint = pathPoints[0];
-        const enemy = {
-          el: img,
-          healthBarContainer,
-          healthBar,
-          x: startPoint.x,
-          y: startPoint.y,
-          speed: witchEnemyConfig.speed,
-          size: witchEnemyConfig.size,
-          health: witchEnemyConfig.health,
-          maxHealth: witchEnemyConfig.health,
-          currentIndex: 0,
-          progress: 0,
-          segmentDistance: null,
-          start: startPoint,
-          end: pathPoints[1],
-          lastTimestamp: null,
-          alive: true,
-          coinReward: witchEnemyConfig.coinReward,
-          troopName: witchEnemyConfig.troopName,
-          takeDamage(amount) {
-            this.health = Math.max(0, this.health - amount);
-            this.updateHealthBar();
-            if (this.health === 0) {
-              this.alive = false;
-              this.el.remove();
-              this.healthBarContainer.remove();
-              enemies.splice(enemies.indexOf(this), 1);
-              if (this.coinReward) addCoins(this.coinReward);
-            }
-          },
-          updateHealthBar() {
-            const percent = Math.max(0, this.health / this.maxHealth);
-            this.healthBar.style.width = `${percent * 100}%`;
-            if (percent > 0.5) {
-              this.healthBar.style.background = "linear-gradient(90deg, #4caf50, #a5d6a7)";
-            } else if (percent > 0.2) {
-              this.healthBar.style.background = "linear-gradient(90deg, #ffc107, #ffe082)";
-            } else {
-              this.healthBar.style.background = "linear-gradient(90deg, #f44336, #ff8a65)";
-            }
-          }
-        };
-
-        enemy.segmentDistance = Math.hypot(
-          enemy.end.x - enemy.start.x,
-          enemy.end.y - enemy.start.y
-        );
-
-        enemy.updateHealthBar();
-
-        enemies.push(enemy);
-        requestAnimationFrame(ts => moveEnemy(enemy, ts));
-        return enemy;
-      }
-
-      witchEnemyObj = spawnWitchAndTrack();
-
-      // Set up repeated skeleton spawns every 10 seconds for this witch
-      let witchSkeletonInterval;
-      function spawnWitchSkeletons() {
-        // Only spawn skeletons if the witch is still alive and on the field
-        if (!witchEnemyObj || !witchEnemyObj.alive) return;
-        // Find the closest path segment the witch is currently on
-        let minDist = Infinity;
-        let closestIndex = 0;
-        for (let i = 0; i < pathPoints.length - 1; i++) {
-          // Project witch position onto the segment
-          const sx = pathPoints[i].x, sy = pathPoints[i].y;
-          const ex = pathPoints[i + 1].x, ey = pathPoints[i + 1].y;
-          const dx = ex - sx, dy = ey - sy;
-          const len2 = dx * dx + dy * dy;
-          let t = 0;
-          if (len2 > 0) {
-            t = ((witchEnemyObj.x - sx) * dx + (witchEnemyObj.y - sy) * dy) / len2;
-            t = Math.max(0, Math.min(1, t));
-          }
-          const projX = sx + t * dx;
-          const projY = sy + t * dy;
-          const dist = Math.hypot(witchEnemyObj.x - projX, witchEnemyObj.y - projY);
-          if (dist < minDist) {
-            minDist = dist;
-            closestIndex = i;
-          }
-        }
-        // Spawn skeletons around the witch's current position, and set their path index to match the witch's
-        const wx = witchEnemyObj.x;
-        const wy = witchEnemyObj.y;
-        const offsets = [
-          { dx: 30, dy: 0 },
-          { dx: -30, dy: 0 },
-          { dx: 0, dy: 30 },
-          { dx: 0, dy: -30 }
-        ];
-        offsets.forEach(offset => {
-          // Start at witch's position + offset, and set path following from the witch's current segment
-          const start = { x: wx + offset.dx, y: wy + offset.dy };
-          const end = pathPoints[closestIndex + 1] || pathPoints[pathPoints.length - 1];
-          const skeleton = {
-            imageSrc: 'https://i.postimg.cc/J7Z3cnmp/image-2025-05-16-103314524.png',
-            speed: 60,
-            size: 40,
-            health: 30,
-            coinReward: 8,
-            customStart: start,
-            troopName: 'Skeleton Army',
-            // Pass custom path index info
-            _witchPathIndex: closestIndex
-          };
-          // Custom spawnEnemy to set the correct path index
-          const img = document.createElement("img");
-          img.src = skeleton.imageSrc;
-          img.className = "enemy";
-          img.style.width = `${skeleton.size}px`;
-          img.style.height = `${skeleton.size}px`;
-
-          const healthBarContainer = document.createElement("div");
-          healthBarContainer.style.position = "absolute";
-          healthBarContainer.style.width = `${skeleton.size}px`;
-          healthBarContainer.style.height = "8px";
-          healthBarContainer.style.top = "0px";
-          healthBarContainer.style.left = "0px";
-          healthBarContainer.style.pointerEvents = "none";
-          healthBarContainer.style.zIndex = "20";
-          healthBarContainer.style.background = "rgba(0,0,0,0.5)";
-          healthBarContainer.style.borderRadius = "4px";
-          const healthBar = document.createElement("div");
-          healthBar.style.height = "100%";
-          healthBar.style.width = "100%";
-          healthBar.style.background = "linear-gradient(90deg, #4caf50, #a5d6a7)";
-          healthBar.style.borderRadius = "4px";
-          healthBarContainer.appendChild(healthBar);
-
-          gameContainer.appendChild(img);
-          gameContainer.appendChild(healthBarContainer);
-
-          const enemy = {
-            el: img,
-            healthBarContainer,
-            healthBar,
-            x: start.x,
-            y: start.y,
-            speed: skeleton.speed,
-            size: skeleton.size,
-            health: skeleton.health,
-            maxHealth: skeleton.health,
-            currentIndex: closestIndex,
-            progress: 0,
-            segmentDistance: Math.hypot(end.x - start.x, end.y - start.y),
-            start: start,
-            end: end,
-            lastTimestamp: null,
-            alive: true,
-            coinReward: skeleton.coinReward,
-            troopName: skeleton.troopName,
-            takeDamage(amount) {
-              this.health = Math.max(0, this.health - amount);
-              this.updateHealthBar();
-              if (this.health === 0) {
-                this.alive = false;
-                this.el.remove();
-                this.healthBarContainer.remove();
-                enemies.splice(enemies.indexOf(this), 1);
-                if (this.coinReward) addCoins(this.coinReward);
-              }
-            },
-            updateHealthBar() {
-              const percent = Math.max(0, this.health / this.maxHealth);
-              this.healthBar.style.width = `${percent * 100}%`;
-              if (percent > 0.5) {
-                this.healthBar.style.background = "linear-gradient(90deg, #4caf50, #a5d6a7)";
-              } else if (percent > 0.2) {
-                this.healthBar.style.background = "linear-gradient(90deg, #ffc107, #ffe082)";
-              } else {
-                this.healthBar.style.background = "linear-gradient(90deg, #f44336, #ff8a65)";
-              }
-            }
-          };
-
-          enemy.updateHealthBar();
-
-          enemies.push(enemy);
-          requestAnimationFrame(ts => moveEnemy(enemy, ts));
-        });
-        // Schedule next skeleton spawn for this witch
-        witchSkeletonInterval = setTimeout(spawnWitchSkeletons, 10000);
-        enemySpawnTimeouts.push(witchSkeletonInterval);
-      }
-      // Start the repeated skeleton spawn for this witch
-      spawnWitchSkeletons();
-    }, "witch");
-
-    // Ram Rider
-    spawnLoop(() => {
-      spawnEnemy({
-        speed: 80,
-        imageSrc: 'https://i.postimg.cc/YCYwtQw1/image-2025-05-16-104501378.png',
-        size: 65,
-        health: 180,
-        coinReward: 110,
-        troopName: 'Ram Rider'
-      });
-    }, "ram");
-
-    // Lava Hound
-    spawnLoop(() => {
-      spawnEnemy({
-        speed: 20,
-        imageSrc: 'https://i.postimg.cc/0QH4YNsk/image-2025-05-16-104632815.png',
-        size: 100,
-        health: 600,
-        coinReward: 250,
-        troopName: 'Lava Hound'
-      });
-    }, "lava");
-
-    // Royal Ghost
-    spawnLoop(() => {
-      spawnEnemy({
-        speed: 70,
-        imageSrc: 'https://i.postimg.cc/CxL6QDxh/image-2025-05-16-104742624.png',
-        size: 70,
-        health: 200,
-        coinReward: 90,
-        isRoyalGhost: true,
-        troopName: 'Royal Ghost'
-      });
-    }, "ghost");
-  }
-
-  // Start all enemy spawns on game load
-  startEnemySpawns();
-
-  // User health bar logic
-  let userHealth = 5000;
-  const userMaxHealth = 5000;
-  const userHealthBar = document.getElementById("userHealthBar");
-  const userHealthText = document.getElementById("userHealthText");
-  const userHealthBarContainer = document.getElementById("userHealthBarContainer");
-
-  function updateUserHealthBar() {
-    const percent = Math.max(0, userHealth / userMaxHealth);
-    userHealthBar.style.width = `${percent * 100}%`;
-    if (percent > 0.5) {
-      userHealthBar.style.background = "linear-gradient(90deg, #4caf50, #a5d6a7)";
-    } else if (percent > 0.2) {
-      userHealthBar.style.background = "linear-gradient(90deg, #ffc107, #ffe082)";
-    } else {
-      userHealthBar.style.background = "linear-gradient(90deg, #f44336, #ff8a65)";
-    }
-    userHealthText.textContent = `${userHealth} / ${userMaxHealth}`;
-
-    // Game over logic
-    if (userHealth === 0 && !document.getElementById("gameOverPopup")) {
-      showGameOverPopup();
-    }
-  }
-
-  function showGameOverPopup() {
-    // Create overlay
-    const overlay = document.createElement("div");
-    overlay.id = "gameOverPopup";
-    overlay.style.position = "fixed";
-    overlay.style.left = "0";
-    overlay.style.top = "0";
-    overlay.style.width = "100vw";
-    overlay.style.height = "100vh";
-    overlay.style.background = "rgba(0,0,0,0.85)";
-    overlay.style.display = "flex";
-    overlay.style.flexDirection = "column";
-    overlay.style.alignItems = "center";
-    overlay.style.justifyContent = "center";
-    overlay.style.zIndex = "9999";
-
-    // Game Over text
-    const text = document.createElement("div");
-    text.textContent = "Game Over";
-    text.style.color = "#fff";
-    text.style.fontSize = "48px";
-    text.style.fontWeight = "bold";
-    text.style.marginBottom = "24px";
-    overlay.appendChild(text);
-
-    document.body.appendChild(overlay);
-
-    // After 3 seconds, show restart button
-    setTimeout(() => {
-      const restartBtn = document.createElement("button");
-      restartBtn.textContent = "Start Over";
-      restartBtn.style.fontSize = "24px";
-      restartBtn.style.padding = "12px 32px";
-      restartBtn.style.borderRadius = "8px";
-      restartBtn.style.border = "none";
-      restartBtn.style.background = "#4caf50";
-      restartBtn.style.color = "#fff";
-      restartBtn.style.cursor = "pointer";
-      restartBtn.style.fontWeight = "bold";
-      restartBtn.style.opacity = "0";
-      restartBtn.style.transition = "opacity 1s";
-      // Ensure button is above overlay and doesn't cover health bar
-      restartBtn.style.zIndex = "10000";
-      // Fix: force repaint to ensure transition works and preserve background color
-      restartBtn.style.background = "#4caf50";
-      restartBtn.onclick = () => {
-        // Remove all enemies and clear the array
-        enemies.forEach(e => {
-          e.alive = false; // Mark as not alive to stop animation
-          e.el.remove();
-          if (e.healthBarContainer) e.healthBarContainer.remove();
-        });
-        enemies.length = 0; // This ensures no invisible enemies remain
-        // Remove all towers and their radii
-        document.querySelectorAll('.tower').forEach(el => el.remove());
-        document.querySelectorAll('.tower-radius').forEach(el => el.remove());
-        placedTowers.length = 0; // Clear placed towers array
-        // Reset user health
-        userHealth = userMaxHealth;
-        updateUserHealthBar();
-        // Remove popup
-        overlay.remove();
-        // Clear all enemy spawn timeouts
-        clearEnemySpawns();
-        // Reset spawn state (intervals and counts)
-        resetSpawnState();
-        // Start enemy spawns again
-        startEnemySpawns();
-        // Spawn a giant instantly again
-        spawnEnemy({
-          speed: 25,
-          imageSrc: 'https://i.postimg.cc/G2qWD0nP/image-2025-05-14-110409784.png',
-          size: 80,
-          health: 300,
-          troopName: 'Giant'
-        });
-        // Reset coins
-        coins = 500;
-        updateCoinDisplay();
-        // Reset spawn state (intervals and counts)
-        resetSpawnState();
-      };
-      overlay.appendChild(restartBtn);
-      // Fade in the button
-      setTimeout(() => {
-        // Re-apply background color in case browser resets it on opacity change
-        restartBtn.style.background = "#4caf50";
-        restartBtn.style.opacity = "1";
-      }, 50);
-    }, 3000);
-  }
-
-  function moveEnemy(enemy, timestamp) {
-    if (!enemy.alive) return;
-    if (!enemy.lastTimestamp) enemy.lastTimestamp = timestamp;
-    const dt = (timestamp - enemy.lastTimestamp) / 1000;
-    enemy.lastTimestamp = timestamp;
-
-    enemy.progress += (enemy.speed * dt) / enemy.segmentDistance;
-
-    // --- Royal Ghost Visibility Logic ---
-    if (enemy.isRoyalGhost) {
-      let revealed = false;
-      for (const tower of placedTowers) {
-        const dx = tower.x - enemy.x;
-        const dy = tower.y - enemy.y;
-        if (Math.sqrt(dx * dx + dy * dy) < ROYAL_GHOST_REVEAL_RADIUS) {
-          revealed = true;
-          break;
-        }
-      }
-      enemy.el.style.opacity = revealed ? "1" : "0.2";
-    }
-
-    if (enemy.progress >= 1) {
-      enemy.currentIndex++;
-      if (typeof enemy.currentIndex !== "undefined" && enemy.currentIndex < pathPoints.length - 1) {
-        enemy.start = pathPoints[enemy.currentIndex];
-        enemy.end = pathPoints[enemy.currentIndex + 1];
-        enemy.segmentDistance = Math.hypot(
-          enemy.end.x - enemy.start.x,
-          enemy.end.y - enemy.start.y
-        );
-        enemy.progress = 0;
-      } else if (enemy.currentIndex >= pathPoints.length - 1) {
-        // Damage user health based on enemy type
-        if (enemy.size === 80 && enemy.maxHealth === 300 && enemy.speed === 25) {
-          userHealth = Math.max(0, userHealth - 300);
-        } else if (enemy.size === 60 && enemy.maxHealth === 100 && enemy.speed === 100) {
-          userHealth = Math.max(0, userHealth - 500);
-        } else if (enemy.size === 40 && enemy.maxHealth === 30 && enemy.speed === 60) {
-          userHealth = Math.max(0, userHealth - 100);
-        } else if (enemy.size === 55 && enemy.maxHealth === 120 && enemy.speed === 50) {
-          userHealth = Math.max(0, userHealth - 350);
-        } else if (enemy.size === 35 && enemy.maxHealth === 25 && enemy.speed === 90) {
-          userHealth = Math.max(0, userHealth - 120);
-        } else if (enemy.size === 65 && enemy.maxHealth === 150 && enemy.speed === 30) {
-          userHealth = Math.max(0, userHealth - 800);
-        } else if (enemy.size === 50 && enemy.maxHealth === 80 && enemy.speed === 120) {
-          userHealth = Math.max(0, userHealth - 200);
-        } else if (enemy.size === 90 && enemy.maxHealth === 500 && enemy.speed === 15) {
-          userHealth = Math.max(0, userHealth - 1000);
-        } else if (enemy.size === 60 && enemy.maxHealth === 150 && enemy.speed === 35) {
-          userHealth = Math.max(0, userHealth - 250);
-        } else if (enemy.size === 65 && enemy.maxHealth === 180 && enemy.speed === 80) {
-          userHealth = Math.max(0, userHealth - 400);
-        } else if (enemy.size === 100 && enemy.maxHealth === 600 && enemy.speed === 20) {
-          userHealth = Math.max(0, userHealth - 700);
-        } else if (enemy.size === 70 && enemy.maxHealth === 200 && enemy.speed === 70) {
-          userHealth = Math.max(0, userHealth - 300);
-        }
-        updateUserHealthBar(); // <-- Ensure health bar updates here!
-        enemy.el.remove();
-        if (enemy.healthBarContainer) enemy.healthBarContainer.remove();
-        enemy.alive = false;
-        enemies.splice(enemies.indexOf(enemy), 1);
-        return;
-      }
-      enemy.start = pathPoints[enemy.currentIndex];
-      enemy.end = pathPoints[enemy.currentIndex + 1];
-      enemy.segmentDistance = Math.hypot(
-        enemy.end.x - enemy.start.x,
-        enemy.end.y - enemy.start.y
-      );
-      enemy.progress = 0;
-    }
-
-    const x = enemy.start.x + (enemy.end.x - enemy.start.x) * enemy.progress;
-    const y = enemy.start.y + (enemy.end.y - enemy.start.y) * enemy.progress;
-    enemy.x = x;
-    enemy.y = y;
-
-    // Center the enemy image
-    enemy.el.style.left = `${x - enemy.size / 2}px`;
-    enemy.el.style.top = `${y - enemy.size / 2}px`;
-
-    // Position health bar above the enemy
-    enemy.healthBarContainer.style.left = `${x - enemy.size / 2}px`;
-    enemy.healthBarContainer.style.top = `${y - enemy.size / 2 - 12}px`;
-
-    requestAnimationFrame(ts => moveEnemy(enemy, ts));
-  }
-
-  // 🎯 Spawn a giant instantly on game start
-  spawnEnemy({
-    speed: 25,
-    imageSrc: 'https://i.postimg.cc/G2qWD0nP/image-2025-05-14-110409784.png', // giant
-    size: 80,
-    health: 300,
-    coinReward: 120,
-    troopName: 'Giant'
-  });
 
   // --- Tower Data ---
   const towerData = [
@@ -907,328 +101,815 @@ Author: Lars, Darsh, Pradyun
     { name: 'Rage Beacon', imageSrc: 'https://i.postimg.cc/PfKgj89S/image-2025-05-20-100521354.png', radius: 130, cost: 400 },
   ];
 
-  const placedTowers = [];
+  // --- Classes ---
+  class Enemy {
+    constructor(game, config) {
+      this.game = game;
+      this.x = (config.customStart ? config.customStart.x : pathPoints[0].x);
+      this.y = (config.customStart ? config.customStart.y : pathPoints[0].y);
+      this.speed = config.speed;
+      this.size = config.size;
+      this.health = config.health;
+      this.maxHealth = config.health;
+      this.coinReward = config.coinReward || 10;
+      this.isRoyalGhost = !!config.isRoyalGhost;
+      this.troopName = config.troopName || null;
+      this.currentIndex = config._witchPathIndex || 0;
+      this.progress = 0;
+      this.start = config.customStart || pathPoints[this.currentIndex];
+      this.end = pathPoints[this.currentIndex + 1];
+      this.segmentDistance = Math.hypot(this.end.x - this.start.x, this.end.y - this.start.y);
+      this.lastTimestamp = null;
+      this.alive = true;
 
-  function isValidTowerPlacement(x, y, radius) {
-    // Prevent placement if too close to any path segment (buffer 40px)
-    const buffer = 40;
-    for (let i = 0; i < pathPoints.length - 1; i++) {
-      const p1 = pathPoints[i];
-      const p2 = pathPoints[i + 1];
-      // Project (x, y) onto the segment p1-p2
-      const dx = p2.x - p1.x;
-      const dy = p2.y - p1.y;
-      const len2 = dx * dx + dy * dy;
-      let t = 0;
-      if (len2 > 0) {
-        t = ((x - p1.x) * dx + (y - p1.y) * dy) / len2;
-        t = Math.max(0, Math.min(1, t));
+      // DOM
+      this.el = document.createElement("img");
+      this.el.src = config.imageSrc;
+      this.el.className = "enemy";
+      this.el.style.width = `${this.size}px`;
+      this.el.style.height = `${this.size}px`;
+      if (this.isRoyalGhost) {
+        this.el.style.opacity = "0.15"; // More invisible by default
+        this.el.dataset.royalGhost = "1";
       }
-      const projX = p1.x + t * dx;
-      const projY = p1.y + t * dy;
-      const dist = Math.hypot(x - projX, y - projY);
-      if (dist < buffer) return false;
+      this.healthBarContainer = document.createElement("div");
+      this.healthBarContainer.style.position = "absolute";
+      this.healthBarContainer.style.width = `${this.size}px`;
+      this.healthBarContainer.style.height = "8px";
+      this.healthBarContainer.style.top = "0px";
+      this.healthBarContainer.style.left = "0px";
+      this.healthBarContainer.style.pointerEvents = "none";
+      this.healthBarContainer.style.zIndex = "20";
+      this.healthBarContainer.style.background = "rgba(0,0,0,0.5)";
+      this.healthBarContainer.style.borderRadius = "4px";
+      this.healthBar = document.createElement("div");
+      this.healthBar.style.height = "100%";
+      this.healthBar.style.width = "100%";
+      this.healthBar.style.background = "linear-gradient(90deg, #4caf50, #a5d6a7)";
+      this.healthBar.style.borderRadius = "4px";
+      this.healthBarContainer.appendChild(this.healthBar);
+
+      this.game.gameContainer.appendChild(this.el);
+      this.game.gameContainer.appendChild(this.healthBarContainer);
+
+      this.updateHealthBar();
+      this.game.enemies.push(this);
+      requestAnimationFrame(ts => this.move(ts));
     }
-    return true;
-  }
-
-  function renderTowers() {
-    // Remove all previous tower images and radii
-    document.querySelectorAll('.tower').forEach(el => el.remove());
-    document.querySelectorAll('.tower-radius').forEach(el => el.remove());
-    placedTowers.forEach(tower => {
-      // Draw attack radius
-      const radiusDiv = document.createElement('div');
-      radiusDiv.className = 'tower-radius';
-      radiusDiv.style.position = 'absolute';
-      radiusDiv.style.left = `${tower.x - tower.radius}px`;
-      radiusDiv.style.top = `${tower.y - tower.radius}px`;
-      radiusDiv.style.width = `${tower.radius * 2}px`;
-      radiusDiv.style.height = `${tower.radius * 2}px`;
-      radiusDiv.style.borderRadius = '50%';
-      radiusDiv.style.background = 'rgba(0, 200, 255, 0.15)';
-      radiusDiv.style.border = '2px dashed #00bcd4';
-      radiusDiv.style.pointerEvents = 'none';
-      radiusDiv.style.zIndex = 10;
-      gameContainer.appendChild(radiusDiv);
-      // Draw tower image
-      const img = document.createElement('img');
-      img.src = tower.imageSrc;
-      img.className = 'tower';
-      img.style.position = 'absolute';
-      img.style.left = `${tower.x - 25}px`;
-      img.style.top = `${tower.y - 25}px`;
-      img.style.width = '50px';
-      img.style.height = '50px';
-      img.title = tower.name;
-      img.style.zIndex = 15;
-      gameContainer.appendChild(img);
-    });
-  }
-
-  // --- Tower Menu Centered Below Map ---
-  function showTowerMenu() {
-    let menu = document.getElementById('towerMenu');
-    if (menu) menu.remove();
-    menu = document.createElement('div');
-    menu.id = 'towerMenu';
-    menu.style.position = 'absolute';
-    menu.style.left = (gameContainer.offsetLeft + gameContainer.offsetWidth / 2 - 320) + 'px';
-    menu.style.top = (gameContainer.offsetTop + gameContainer.offsetHeight + 16) + 'px';
-    menu.style.width = '640px';
-    menu.style.background = 'rgba(30,30,30,0.95)';
-    menu.style.border = '2px solid #fff';
-    menu.style.borderRadius = '10px';
-    menu.style.padding = '12px';
-    menu.style.zIndex = 10001;
-    menu.style.display = 'flex';
-    menu.style.flexDirection = 'column';
-    menu.style.gap = '8px';
-    menu.innerHTML = '<b style="color:#fff;">Drag Towers</b>';
-    const spriteRow = document.createElement('div');
-    spriteRow.style.display = 'flex';
-    spriteRow.style.gap = '18px';
-    spriteRow.style.justifyContent = 'center';
-    towerData.forEach((tower, idx) => {
-      const spriteCol = document.createElement('div');
-      spriteCol.style.display = 'flex';
-      spriteCol.style.flexDirection = 'column';
-      spriteCol.style.alignItems = 'center';
-      const sprite = document.createElement('img');
-      sprite.src = tower.imageSrc;
-      sprite.title = tower.name + " (" + tower.cost + " coins)";
-      sprite.style.width = '48px';
-      sprite.style.height = '48px';
-      sprite.style.cursor = 'grab';
-      sprite.draggable = true;
-      sprite.ondragstart = e => {
-        e.dataTransfer.setData('towerIdx', idx);
-      };
-      // Show cost below sprite
-      const costLabel = document.createElement('span');
-      costLabel.textContent = tower.cost + "🪙";
-      costLabel.style.color = "#ffd700";
-      costLabel.style.fontWeight = "bold";
-      costLabel.style.fontSize = "15px";
-      costLabel.style.marginTop = "2px";
-      spriteCol.appendChild(sprite);
-      spriteCol.appendChild(costLabel);
-      spriteRow.appendChild(spriteCol);
-    });
-    menu.appendChild(spriteRow);
-    document.body.appendChild(menu);
-  }
-
-  showTowerMenu();
-
-  gameContainer.ondragover = e => {
-    e.preventDefault();
-  };
-  gameContainer.ondrop = e => {
-    e.preventDefault();
-    const rect = gameContainer.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
-    const idx = e.dataTransfer.getData('towerIdx');
-    const tower = towerData[idx];
-    if (!tower) return;
-    if (!isValidTowerPlacement(x, y, tower.radius)) {
-      alert('Cannot place tower here! Too close to path.');
-      return;
+    takeDamage(amount) {
+      this.health = Math.max(0, this.health - amount);
+      this.updateHealthBar();
+      if (this.health === 0) {
+        this.alive = false;
+        this.el.remove();
+        this.healthBarContainer.remove();
+        this.game.enemies.splice(this.game.enemies.indexOf(this), 1);
+        if (this.coinReward) this.game.addCoins(this.coinReward);
+      }
     }
-    if (coins < tower.cost) {
-      alert('Not enough coins! (' + tower.cost + ' needed)');
-      return;
-    }
-    spendCoins(tower.cost);
-    placedTowers.push({ ...tower, x, y });
-    renderTowers();
-  };
-
-  // --- Tower Attack Logic ---
-  const TOWER_ATTACK_INTERVAL = 500; // ms
-  const INFERNO_RAMP = [4, 6, 8, 12, 18]; // Slower and less aggressive ramp-up
-  const ARCHER_DAMAGE = 30;
-  const BOMB_DAMAGE = 18; // Reduced damage
-  const BOMB_RADIUS = 50;
-
-  const ARCHER_ARROW_IMG = 'https://i.postimg.cc/gjznhbcv/image-2025-05-21-114040090.png';
-  const WIZARD_FIREBALL_IMG = 'https://i.postimg.cc/TwGw8vDZ/image-2025-05-21-114249663.png';
-  const BOMB_PROJECTILE_IMG = 'https://i.postimg.cc/L6qPCWkV/download-removebg-preview.png';
-
-  const towerAttackState = new Map(); // For inferno ramping
-
-  function spawnProjectile({fromX, fromY, toX, toY, imgSrc, speed, onHit}) {
-    const img = document.createElement('img');
-    img.src = imgSrc;
-    img.style.position = 'absolute';
-    img.style.left = fromX + 'px';
-    img.style.top = fromY + 'px';
-    img.style.width = '40px'; // Increased size
-    img.style.height = '40px'; // Increased size
-    img.style.zIndex = 20;
-    img.className = 'projectile';
-    gameContainer.appendChild(img);
-    const dx = toX - fromX;
-    const dy = toY - fromY;
-    const dist = Math.sqrt(dx*dx + dy*dy);
-    const duration = dist / speed * 1000;
-    let start = null;
-    function animate(ts) {
-      if (!start) start = ts;
-      const elapsed = ts - start;
-      const t = Math.min(1, elapsed / duration);
-      const x = fromX + dx * t;
-      const y = fromY + dy * t;
-      img.style.left = x + 'px';
-      img.style.top = y + 'px';
-      if (t < 1) {
-        requestAnimationFrame(animate);
+    updateHealthBar() {
+      const percent = Math.max(0, this.health / this.maxHealth);
+      this.healthBar.style.width = `${percent * 100}%`;
+      if (percent > 0.5) {
+        this.healthBar.style.background = "linear-gradient(90deg, #4caf50, #a5d6a7)";
+      } else if (percent > 0.2) {
+        this.healthBar.style.background = "linear-gradient(90deg, #ffc107, #ffe082)";
       } else {
-        img.remove();
-        if (onHit) onHit();
+        this.healthBar.style.background = "linear-gradient(90deg, #f44336, #ff8a65)";
       }
     }
-    requestAnimationFrame(animate);
+    move(timestamp) {
+      if (!this.alive) return;
+      if (!this.lastTimestamp) this.lastTimestamp = timestamp;
+      const dt = (timestamp - this.lastTimestamp) / 1000;
+      this.lastTimestamp = timestamp;
+      this.progress += (this.speed * dt) / this.segmentDistance;
+
+      // Royal Ghost visibility and attackability
+      if (this.isRoyalGhost) {
+        let revealed = false;
+        for (const tower of this.game.placedTowers) {
+          const dx = tower.x - this.x;
+          const dy = tower.y - this.y;
+          const revealRadius = tower.radius * 0.75;
+          const d = Math.sqrt(dx * dx + dy * dy);
+          if (d < revealRadius) {
+            revealed = true;
+            break;
+          }
+        }
+        if (revealed) {
+          // Instantly fully visible, no blue glow, no opacity ramp
+          this.el.style.opacity = "1";
+          this.el.style.filter = "";
+          this.el.style.outline = "";
+          this.canBeTargeted = true;
+        } else {
+          this.el.style.opacity = "0.15";
+          this.el.style.filter = "";
+          this.el.style.outline = "";
+          this.canBeTargeted = false;
+        }
+      }
+
+      if (this.progress >= 1) {
+        this.currentIndex++;
+        if (this.currentIndex < pathPoints.length - 1) {
+          this.start = pathPoints[this.currentIndex];
+          this.end = pathPoints[this.currentIndex + 1];
+          this.segmentDistance = Math.hypot(this.end.x - this.start.x, this.end.y - this.start.y);
+          this.progress = 0;
+        } else {
+          // Damage user health based on enemy type
+          this.game.damageUserHealth(this);
+          this.el.remove();
+          this.healthBarContainer.remove();
+          this.alive = false;
+          this.game.enemies.splice(this.game.enemies.indexOf(this), 1);
+          return;
+        }
+      }
+      this.x = lerp(this.start.x, this.end.x, this.progress);
+      this.y = lerp(this.start.y, this.end.y, this.progress);
+      this.el.style.left = `${this.x - this.size / 2}px`;
+      this.el.style.top = `${this.y - this.size / 2}px`;
+      this.healthBarContainer.style.left = `${this.x - this.size / 2}px`;
+      this.healthBarContainer.style.top = `${this.y - this.size / 2 - 12}px`;
+      requestAnimationFrame(ts => this.move(ts));
+    }
   }
 
-  function towerAttackLoop() {
-    placedTowers.forEach(tower => {
-      if (tower.name === 'Inferno Tower') {
-        // Find nearest enemy in range
-        let nearest = null, minDist = Infinity;
-        enemies.forEach(enemy => {
-          if (!enemy.alive) return;
-          const dx = tower.x - enemy.x;
-          const dy = tower.y - enemy.y;
-          const dist = Math.sqrt(dx*dx + dy*dy);
-          if (dist < tower.radius && dist < minDist) {
-            nearest = enemy;
-            minDist = dist;
+  class Tower {
+    constructor(game, config, x, y) {
+      this.game = game;
+      this.name = config.name;
+      this.imageSrc = config.imageSrc;
+      this.radius = config.radius;
+      this.cost = config.cost;
+      this.x = x;
+      this.y = y;
+      this.lastShot = 0;
+      this.state = {};
+    }
+  }
+
+  class Projectile {
+    constructor(game, {fromX, fromY, toX, toY, imgSrc, speed, onHit}) {
+      this.game = game;
+      this.img = document.createElement('img');
+      this.img.src = imgSrc;
+      this.img.style.position = 'absolute';
+      this.img.style.left = fromX + 'px';
+      this.img.style.top = fromY + 'px';
+      this.img.style.width = '40px';
+      this.img.style.height = '40px';
+      this.img.style.zIndex = 20;
+      this.img.className = 'projectile';
+      this.game.gameContainer.appendChild(this.img);
+      this.fromX = fromX;
+      this.fromY = fromY;
+      this.toX = toX;
+      this.toY = toY;
+      this.speed = speed;
+      this.onHit = onHit;
+      this.dx = toX - fromX;
+      this.dy = toY - fromY;
+      this.dist = Math.sqrt(this.dx * this.dx + this.dy * this.dy);
+      this.duration = this.dist / speed * 1000;
+      this.start = null;
+      requestAnimationFrame(ts => this.animate(ts));
+    }
+    animate(ts) {
+      if (!this.start) this.start = ts;
+      const elapsed = ts - this.start;
+      const t = Math.min(1, elapsed / this.duration);
+      const x = lerp(this.fromX, this.toX, t);
+      const y = lerp(this.fromY, this.toY, t);
+      this.img.style.left = x + 'px';
+      this.img.style.top = y + 'px';
+      if (t < 1) {
+        requestAnimationFrame(ts => this.animate(ts));
+      } else {
+        this.img.remove();
+        if (this.onHit) this.onHit();
+      }
+    }
+  }
+
+  class Game {
+    constructor() {
+      // DOM
+      this.gameContainer = document.getElementById("gameContainer");
+      this.coinAmountEl = document.getElementById("coinAmount");
+      this.userHealthBar = document.getElementById("userHealthBar");
+      this.userHealthText = document.getElementById("userHealthText");
+      this.userHealthBarContainer = document.getElementById("userHealthBarContainer");
+
+      // State
+      this.coins = 500;
+      this.userHealth = 5000;
+      this.userMaxHealth = 5000;
+      this.enemies = [];
+      this.placedTowers = [];
+      this.towerAttackState = new Map();
+      this.enemySpawnTimeouts = [];
+      this.skeletonSpawnCount = 1;
+      this.minionSpawnCount = 1;
+      this.globalSkeletonCount = 1;
+      this.globalMinionCount = 1;
+      this.baseIntervals = {
+        giant: 10000, hog: 15000, skeleton: 18000, babyDragon: 22000, minion: 20000,
+        balloon: 30000, bandit: 17000, pekka: 40000, witch: 25000, ram: 28000, lava: 45000, ghost: 35000
+      };
+      this.currentIntervals = {...this.baseIntervals};
+      this.MIN_SPAWN_INTERVALS = {
+        giant: 2000, hog: 2000, skeleton: 2000, babyDragon: 2500, minion: 2000,
+        balloon: 3000, bandit: 2000, pekka: 5000, witch: 4000, ram: 2000, lava: 6000, ghost: 2000
+      };
+
+      // UI
+      this.updateCoinDisplay();
+      this.updateUserHealthBar();
+      this.showTowerMenu();
+      this.setupDragDrop();
+      this.startEnemySpawns();
+      this.spawnEnemy({ // spawn a giant instantly
+        speed: 25,
+        imageSrc: 'https://i.postimg.cc/G2qWD0nP/image-2025-05-14-110409784.png',
+        size: 80,
+        health: 300,
+        coinReward: 120,
+        troopName: 'Giant'
+      });
+      this.towerAttackLoop();
+    }
+
+    updateCoinDisplay() {
+      this.coinAmountEl.textContent = this.coins.toLocaleString();
+      this.coinAmountEl.parentElement.style.minWidth = (80 + Math.max(0, (this.coinAmountEl.textContent.length - 4) * 16)) + "px";
+    }
+    addCoins(amount) {
+      this.coins += amount;
+      this.updateCoinDisplay();
+    }
+    spendCoins(amount) {
+      this.coins -= amount;
+      this.updateCoinDisplay();
+    }
+    updateUserHealthBar() {
+      const percent = Math.max(0, this.userHealth / this.userMaxHealth);
+      this.userHealthBar.style.width = `${percent * 100}%`;
+      if (percent > 0.5) {
+        this.userHealthBar.style.background = "linear-gradient(90deg, #4caf50, #a5d6a7)";
+      } else if (percent > 0.2) {
+        this.userHealthBar.style.background = "linear-gradient(90deg, #ffc107, #ffe082)";
+      } else {
+        this.userHealthBar.style.background = "linear-gradient(90deg, #f44336, #ff8a65)";
+      }
+      this.userHealthText.textContent = `${this.userHealth} / ${this.userMaxHealth}`;
+      if (this.userHealth === 0 && !document.getElementById("gameOverPopup")) {
+        this.showGameOverPopup();
+      }
+    }
+    damageUserHealth(enemy) {
+      // Use same logic as before
+      if (enemy.size === 80 && enemy.maxHealth === 300 && enemy.speed === 25) {
+        this.userHealth = Math.max(0, this.userHealth - 300);
+      } else if (enemy.size === 60 && enemy.maxHealth === 100 && enemy.speed === 100) {
+        this.userHealth = Math.max(0, this.userHealth - 500);
+      } else if (enemy.size === 40 && enemy.maxHealth === 30 && enemy.speed === 60) {
+        this.userHealth = Math.max(0, this.userHealth - 100);
+      } else if (enemy.size === 55 && enemy.maxHealth === 120 && enemy.speed === 50) {
+        this.userHealth = Math.max(0, this.userHealth - 350);
+      } else if (enemy.size === 35 && enemy.maxHealth === 25 && enemy.speed === 90) {
+        this.userHealth = Math.max(0, this.userHealth - 120);
+      } else if (enemy.size === 65 && enemy.maxHealth === 150 && enemy.speed === 30) {
+        this.userHealth = Math.max(0, this.userHealth - 800);
+      } else if (enemy.size === 50 && enemy.maxHealth === 80 && enemy.speed === 120) {
+        this.userHealth = Math.max(0, this.userHealth - 200);
+      } else if (enemy.size === 90 && enemy.maxHealth === 500 && enemy.speed === 15) {
+        this.userHealth = Math.max(0, this.userHealth - 1000);
+      } else if (enemy.size === 60 && enemy.maxHealth === 150 && enemy.speed === 35) {
+        this.userHealth = Math.max(0, this.userHealth - 250);
+      } else if (enemy.size === 65 && enemy.maxHealth === 180 && enemy.speed === 80) {
+        this.userHealth = Math.max(0, this.userHealth - 400);
+      } else if (enemy.size === 100 && enemy.maxHealth === 600 && enemy.speed === 20) {
+        this.userHealth = Math.max(0, this.userHealth - 700);
+      } else if (enemy.size === 70 && enemy.maxHealth === 200 && enemy.speed === 70) {
+        this.userHealth = Math.max(0, this.userHealth - 300);
+      }
+      this.updateUserHealthBar();
+    }
+    showGameOverPopup() {
+      // ...existing code for popup, but replace all global references with this.*
+      const overlay = document.createElement("div");
+      overlay.id = "gameOverPopup";
+      overlay.style.position = "fixed";
+      overlay.style.left = "0";
+      overlay.style.top = "0";
+      overlay.style.width = "100vw";
+      overlay.style.height = "100vh";
+      overlay.style.background = "rgba(0,0,0,0.85)";
+      overlay.style.display = "flex";
+      overlay.style.flexDirection = "column";
+      overlay.style.alignItems = "center";
+      overlay.style.justifyContent = "center";
+      overlay.style.zIndex = "9999";
+      const text = document.createElement("div");
+      text.textContent = "Game Over";
+      text.style.color = "#fff";
+      text.style.fontSize = "48px";
+      text.style.fontWeight = "bold";
+      text.style.marginBottom = "24px";
+      overlay.appendChild(text);
+      document.body.appendChild(overlay);
+      setTimeout(() => {
+        const restartBtn = document.createElement("button");
+        restartBtn.textContent = "Start Over";
+        restartBtn.style.fontSize = "24px";
+        restartBtn.style.padding = "12px 32px";
+        restartBtn.style.borderRadius = "8px";
+        restartBtn.style.border = "none";
+        restartBtn.style.background = "#4caf50";
+        restartBtn.style.color = "#fff";
+        restartBtn.style.cursor = "pointer";
+        restartBtn.style.fontWeight = "bold";
+        restartBtn.style.opacity = "0";
+        restartBtn.style.transition = "opacity 1s";
+        restartBtn.style.zIndex = "10000";
+        restartBtn.onclick = () => {
+          // Remove all enemies and clear the array
+          this.enemies.forEach(e => {
+            e.alive = false;
+            e.el.remove();
+            if (e.healthBarContainer) e.healthBarContainer.remove();
+          });
+          this.enemies.length = 0;
+          // Remove all towers and their radii
+          document.querySelectorAll('.tower').forEach(el => el.remove());
+          document.querySelectorAll('.tower-radius').forEach(el => el.remove());
+          this.placedTowers.length = 0;
+          // Reset user health
+          this.userHealth = this.userMaxHealth;
+          this.updateUserHealthBar();
+          overlay.remove();
+          this.clearEnemySpawns();
+          // Reset spawn state (intervals and counts)
+          this.resetSpawnState();
+          // Reset spawn intervals and minion/skeleton counts
+          this.currentIntervals = {...this.baseIntervals};
+          this.skeletonSpawnCount = 1;
+          this.minionSpawnCount = 1;
+          this.globalSkeletonCount = 1;
+          this.globalMinionCount = 1;
+          // Start enemy spawns again
+          this.startEnemySpawns();
+          this.spawnEnemy({
+            speed: 25,
+            imageSrc: 'https://i.postimg.cc/G2qWD0nP/image-2025-05-14-110409784.png',
+            size: 80,
+            health: 300,
+            troopName: 'Giant'
+          });
+          this.coins = 500;
+          this.updateCoinDisplay();
+          // Reset spawn state again for safety
+          this.resetSpawnState();
+        };
+        overlay.appendChild(restartBtn);
+        setTimeout(() => {
+          restartBtn.style.background = "#4caf50";
+          restartBtn.style.opacity = "1";
+        }, 50);
+      }, 3000);
+    }
+    clearEnemySpawns() {
+      this.enemySpawnTimeouts.forEach(id => clearTimeout(id));
+      this.enemySpawnTimeouts = [];
+    }
+    resetSpawnState() {
+      this.skeletonSpawnCount = 1;
+      this.minionSpawnCount = 1;
+      this.globalSkeletonCount = 1;
+      this.globalMinionCount = 1;
+      this.currentIntervals = {...this.baseIntervals};
+    }
+    spawnEnemy(config) {
+      return new Enemy(this, config);
+    }
+    startEnemySpawns() {
+      this.clearEnemySpawns();
+      this.resetSpawnState();
+      const spawnLoop = (spawnFn, intervalKey, onSpawn) => {
+        let interval = this.currentIntervals[intervalKey];
+        const loop = () => {
+          if (intervalKey === "skeleton") {
+            this.spawnGroup(this.globalSkeletonCount, () => {
+              this.spawnEnemy({
+                speed: 60,
+                imageSrc: 'https://i.postimg.cc/J7Z3cnmp/image-2025-05-16-103314524.png',
+                size: 40,
+                health: 30,
+                coinReward: 8,
+                troopName: 'Skeleton Army'
+              });
+            }, 120);
+            if (this.globalSkeletonCount < 64) {
+              this.globalSkeletonCount = Math.min(this.globalSkeletonCount * 2, 64);
+            }
+          } else if (intervalKey === "minion") {
+            this.spawnGroup(this.globalMinionCount, () => {
+              this.spawnEnemy({
+                speed: 90,
+                imageSrc: 'https://i.postimg.cc/PxZD43GC/image-2025-05-16-103616663.png',
+                size: 35,
+                health: 25,
+                coinReward: 6,
+                troopName: 'Minion Horde'
+              });
+            }, 100);
+            if (this.globalMinionCount < 5) this.globalMinionCount += 1;
+          } else {
+            if (onSpawn) onSpawn();
+            if (spawnFn) spawnFn();
           }
+          interval = Math.max(interval * 0.97, this.MIN_SPAWN_INTERVALS[intervalKey] || 2000);
+          this.currentIntervals[intervalKey] = interval;
+          this.enemySpawnTimeouts.push(setTimeout(loop, interval));
+        };
+        this.enemySpawnTimeouts.push(setTimeout(loop, interval));
+      };
+      this.spawnGroup = (count, spawnFn, delay = 150) => {
+        let spawned = 0;
+        const spawnNext = () => {
+          if (spawned < count) {
+            spawnFn(spawned);
+            spawned++;
+            setTimeout(spawnNext, delay);
+          }
+        };
+        spawnNext();
+      };
+      // ...existing code for all spawnLoop calls (giant, hog, skeleton, etc), but use this.spawnEnemy
+      spawnLoop(() => this.spawnEnemy({
+        speed: 25,
+        imageSrc: 'https://i.postimg.cc/G2qWD0nP/image-2025-05-14-110409784.png',
+        size: 80,
+        health: 300,
+        coinReward: 120,
+        troopName: 'Giant'
+      }), "giant");
+      spawnLoop(() => this.spawnEnemy({
+        speed: 100,
+        imageSrc: 'https://i.postimg.cc/4NxrrzmL/image-2025-05-16-101734632.png',
+        size: 60,
+        health: 100,
+        coinReward: 80,
+        troopName: 'Hog Rider'
+      }), "hog");
+      spawnLoop(null, "skeleton");
+      spawnLoop(() => this.spawnEnemy({
+        speed: 50,
+        imageSrc: 'https://i.postimg.cc/zfyKLD0S/image-2025-05-16-103451709.png',
+        size: 55,
+        health: 120,
+        coinReward: 90,
+        troopName: 'Baby Dragon'
+      }), "babyDragon");
+      spawnLoop(null, "minion");
+      spawnLoop(() => this.spawnEnemy({
+        speed: 30,
+        imageSrc: 'https://i.postimg.cc/28TZ2Lt7/image-2025-05-16-103738864.png',
+        size: 65,
+        health: 150,
+        coinReward: 150,
+        troopName: 'Balloon'
+      }), "balloon");
+      spawnLoop(() => this.spawnEnemy({
+        speed: 120,
+        imageSrc: 'https://i.postimg.cc/j2cLgBMS/image-2025-05-16-103917837.png',
+        size: 50,
+        health: 80,
+        coinReward: 60,
+        troopName: 'Bandit'
+      }), "bandit");
+      spawnLoop(() => this.spawnEnemy({
+        speed: 15,
+        imageSrc: 'https://i.postimg.cc/FsnKYyq8/image-2025-05-16-104224204.png',
+        size: 90,
+        health: 500,
+        coinReward: 300,
+        troopName: 'P.E.K.K.A'
+      }), "pekka");
+      // Witch with skeleton spawn logic
+      spawnLoop(() => {
+        let witchEnemyObj = this.spawnEnemy({
+          speed: 35,
+          imageSrc: 'https://i.postimg.cc/YqVprpLw/image-2025-05-16-104350767.png',
+          size: 60,
+          health: 150,
+          coinReward: 100,
+          troopName: 'Witch'
         });
-        if (nearest) {
-          // Ramp up damage if same target, else reset
-          let state = towerAttackState.get(tower) || { target: null, ramp: 0, lastTime: 0 };
-          if (state.target === nearest) {
-            // Only ramp up every 2 attack intervals (slower ramp)
-            if (!state.lastTime || performance.now() - state.lastTime > TOWER_ATTACK_INTERVAL * 2) {
-              state.ramp = Math.min(state.ramp + 1, INFERNO_RAMP.length - 1);
+        let witchSkeletonInterval;
+        const spawnWitchSkeletons = () => {
+          if (!witchEnemyObj || !witchEnemyObj.alive) return;
+          let minDist = Infinity, closestIndex = 0;
+          for (let i = 0; i < pathPoints.length - 1; i++) {
+            const sx = pathPoints[i].x, sy = pathPoints[i].y;
+            const ex = pathPoints[i + 1].x, ey = pathPoints[i + 1].y;
+            const dx = ex - sx, dy = ey - sy;
+            const len2 = dx * dx + dy * dy;
+            let t = 0;
+            if (len2 > 0) {
+              t = ((witchEnemyObj.x - sx) * dx + (witchEnemyObj.y - sy) * dy) / len2;
+              t = Math.max(0, Math.min(1, t));
+            }
+            const projX = sx + t * dx;
+            const projY = sy + t * dy;
+            const dist = Math.hypot(witchEnemyObj.x - projX, witchEnemyObj.y - projY);
+            if (dist < minDist) {
+              minDist = dist;
+              closestIndex = i;
+            }
+          }
+          const wx = witchEnemyObj.x, wy = witchEnemyObj.y;
+          const offsets = [
+            { dx: 30, dy: 0 }, { dx: -30, dy: 0 }, { dx: 0, dy: 30 }, { dx: 0, dy: -30 }
+          ];
+          offsets.forEach(offset => {
+            this.spawnEnemy({
+              imageSrc: 'https://i.postimg.cc/J7Z3cnmp/image-2025-05-16-103314524.png',
+              speed: 60,
+              size: 40,
+              health: 30,
+              coinReward: 8,
+              customStart: { x: wx + offset.dx, y: wy + offset.dy },
+              troopName: 'Skeleton Army',
+              _witchPathIndex: closestIndex
+            });
+          });
+          witchSkeletonInterval = setTimeout(spawnWitchSkeletons, 10000);
+          this.enemySpawnTimeouts.push(witchSkeletonInterval);
+        };
+        spawnWitchSkeletons();
+      }, "witch");
+      spawnLoop(() => this.spawnEnemy({
+        speed: 80,
+        imageSrc: 'https://i.postimg.cc/YCYwtQw1/image-2025-05-16-104501378.png',
+        size: 65,
+        health: 180,
+        coinReward: 110,
+        troopName: 'Ram Rider'
+      }), "ram");
+      spawnLoop(() => this.spawnEnemy({
+        speed: 20,
+        imageSrc: 'https://i.postimg.cc/0QH4YNsk/image-2025-05-16-104632815.png',
+        size: 100,
+        health: 600,
+        coinReward: 250,
+        troopName: 'Lava Hound'
+      }), "lava");
+      spawnLoop(() => this.spawnEnemy({
+        speed: 70,
+        imageSrc: 'https://i.postimg.cc/CxL6QDxh/image-2025-05-16-104742624.png',
+        size: 70,
+        health: 200,
+        coinReward: 90,
+        isRoyalGhost: true,
+        troopName: 'Royal Ghost'
+      }), "ghost");
+    }
+    isValidTowerPlacement(x, y, radius) {
+      const buffer = 40;
+      for (let i = 0; i < pathPoints.length - 1; i++) {
+        const p1 = pathPoints[i], p2 = pathPoints[i + 1];
+        const dx = p2.x - p1.x, dy = p2.y - p1.y, len2 = dx * dx + dy * dy;
+        let t = 0;
+        if (len2 > 0) {
+          t = ((x - p1.x) * dx + (y - p1.y) * dy) / len2;
+          t = Math.max(0, Math.min(1, t));
+        }
+        const projX = p1.x + t * dx, projY = p1.y + t * dy;
+        const d = Math.hypot(x - projX, y - projY);
+        if (d < buffer) return false;
+      }
+      return true;
+    }
+    renderTowers() {
+      document.querySelectorAll('.tower').forEach(el => el.remove());
+      document.querySelectorAll('.tower-radius').forEach(el => el.remove());
+      this.placedTowers.forEach(tower => {
+        const radiusDiv = document.createElement('div');
+        radiusDiv.className = 'tower-radius';
+        radiusDiv.style.position = 'absolute';
+        radiusDiv.style.left = `${tower.x - tower.radius}px`;
+        radiusDiv.style.top = `${tower.y - tower.radius}px`;
+        radiusDiv.style.width = `${tower.radius * 2}px`;
+        radiusDiv.style.height = `${tower.radius * 2}px`;
+        radiusDiv.style.borderRadius = '50%';
+        radiusDiv.style.background = 'rgba(0, 200, 255, 0.15)';
+        radiusDiv.style.border = '2px dashed #00bcd4';
+        radiusDiv.style.pointerEvents = 'none';
+        radiusDiv.style.zIndex = 10;
+        this.gameContainer.appendChild(radiusDiv);
+        const img = document.createElement('img');
+        img.src = tower.imageSrc;
+        img.className = 'tower';
+        img.style.position = 'absolute';
+        img.style.left = `${tower.x - 25}px`;
+        img.style.top = `${tower.y - 25}px`;
+        img.style.width = '50px';
+        img.style.height = '50px';
+        img.title = tower.name;
+        img.style.zIndex = 15;
+        this.gameContainer.appendChild(img);
+      });
+    }
+    showTowerMenu() {
+      let menu = document.getElementById('towerMenu');
+      if (menu) menu.remove();
+      menu = document.createElement('div');
+      menu.id = 'towerMenu';
+      menu.style.position = 'absolute';
+      menu.style.left = (this.gameContainer.offsetLeft + this.gameContainer.offsetWidth / 2 - 320) + 'px';
+      menu.style.top = (this.gameContainer.offsetTop + this.gameContainer.offsetHeight + 16) + 'px';
+      menu.style.width = '640px';
+      menu.style.background = 'rgba(30,30,30,0.95)';
+      menu.style.border = '2px solid #fff';
+      menu.style.borderRadius = '10px';
+      menu.style.padding = '12px';
+      menu.style.zIndex = 10001;
+      menu.style.display = 'flex';
+      menu.style.flexDirection = 'column';
+      menu.style.gap = '8px';
+      menu.innerHTML = '<b style="color:#fff;">Drag Towers</b>';
+      const spriteRow = document.createElement('div');
+      spriteRow.style.display = 'flex';
+      spriteRow.style.gap = '18px';
+      spriteRow.style.justifyContent = 'center';
+      towerData.forEach((tower, idx) => {
+        const spriteCol = document.createElement('div');
+        spriteCol.style.display = 'flex';
+        spriteCol.style.flexDirection = 'column';
+        spriteCol.style.alignItems = 'center';
+        const sprite = document.createElement('img');
+        sprite.src = tower.imageSrc;
+        sprite.title = tower.name + " (" + tower.cost + " coins)";
+        sprite.style.width = '48px';
+        sprite.style.height = '48px';
+        sprite.style.cursor = 'grab';
+        sprite.draggable = true;
+        sprite.ondragstart = e => {
+          e.dataTransfer.setData('towerIdx', idx);
+        };
+        const costLabel = document.createElement('span');
+        costLabel.textContent = tower.cost + "🪙";
+        costLabel.style.color = "#ffd700";
+        costLabel.style.fontWeight = "bold";
+        costLabel.style.fontSize = "15px";
+        costLabel.style.marginTop = "2px";
+        spriteCol.appendChild(sprite);
+        spriteCol.appendChild(costLabel);
+        spriteRow.appendChild(spriteCol);
+      });
+      menu.appendChild(spriteRow);
+      document.body.appendChild(menu);
+    }
+    setupDragDrop() {
+      this.gameContainer.ondragover = e => { e.preventDefault(); };
+      this.gameContainer.ondrop = e => {
+        e.preventDefault();
+        const rect = this.gameContainer.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+        const idx = e.dataTransfer.getData('towerIdx');
+        const tower = towerData[idx];
+        if (!tower) return;
+        if (!this.isValidTowerPlacement(x, y, tower.radius)) {
+          alert('Cannot place tower here! Too close to path.');
+          return;
+        }
+        if (this.coins < tower.cost) {
+          alert('Not enough coins! (' + tower.cost + ' needed)');
+          return;
+        }
+        this.spendCoins(tower.cost);
+        this.placedTowers.push(new Tower(this, tower, x, y));
+        this.renderTowers();
+      };
+    }
+    towerAttackLoop() {
+      this.placedTowers.forEach(tower => {
+        if (tower.name === 'Inferno Tower') {
+          let nearest = null, minDist = Infinity;
+          this.enemies.forEach(enemy => {
+            if (!enemy.alive) return;
+            const dx = tower.x - enemy.x, dy = tower.y - enemy.y;
+            const dist = Math.sqrt(dx*dx + dy*dy);
+            if (dist < tower.radius && dist < minDist) {
+              nearest = enemy; minDist = dist;
+            }
+          });
+          if (nearest) {
+            let state = this.towerAttackState.get(tower) || { target: null, ramp: 0, lastTime: 0 };
+            if (state.target === nearest) {
+              if (!state.lastTime || performance.now() - state.lastTime > TOWER_ATTACK_INTERVAL * 2) {
+                state.ramp = Math.min(state.ramp + 1, INFERNO_RAMP.length - 1);
+                state.lastTime = performance.now();
+              }
+            } else {
+              state.target = nearest;
+              state.ramp = 0;
               state.lastTime = performance.now();
             }
+            nearest.takeDamage(INFERNO_RAMP[state.ramp]);
+            this.towerAttackState.set(tower, state);
           } else {
-            state.target = nearest;
-            state.ramp = 0;
-            state.lastTime = performance.now();
+            this.towerAttackState.delete(tower);
           }
-          nearest.takeDamage(INFERNO_RAMP[state.ramp]);
-          towerAttackState.set(tower, state);
-        } else {
-          towerAttackState.delete(tower);
-        }
-      } else if (tower.name === 'Archer Tower') {
-        // Shoot at nearest enemy in range
-        let lastShot = tower.lastShot || 0;
-        if (performance.now() - lastShot > 700) {
-          let nearest = null, minDist = Infinity;
-          enemies.forEach(enemy => {
-            if (!enemy.alive) return;
-            const dx = tower.x - enemy.x;
-            const dy = tower.y - enemy.y;
-            const dist = Math.sqrt(dx*dx + dy*dy);
-            if (dist < tower.radius && dist < minDist) {
-              nearest = enemy;
-              minDist = dist;
-            }
-          });
-          if (nearest) {
-            // Arrow projectile
-            spawnProjectile({
-              fromX: tower.x,
-              fromY: tower.y,
-              toX: nearest.x,
-              toY: nearest.y,
-              imgSrc: ARCHER_ARROW_IMG,
-              speed: 600,
-              onHit: () => nearest.takeDamage(ARCHER_DAMAGE)
-            });
-            tower.lastShot = performance.now();
-          }
-        }
-      } else if (tower.name === 'Bomb Tower') {
-        // Bomb Tower: splash damage, does NOT attack air troops
-        let lastShot = tower.lastShot || 0;
-        if (performance.now() - lastShot > 1200) {
-          let nearest = null, minDist = Infinity;
-          enemies.forEach(enemy => {
-            if (!enemy.alive) return;
-            // Only target ground troops
-            if (AIR_TROOPS.includes(enemy.troopName)) return;
-            const dx = tower.x - enemy.x;
-            const dy = tower.y - enemy.y;
-            const dist = Math.sqrt(dx*dx + dy*dy);
-            if (dist < tower.radius && dist < minDist) {
-              nearest = enemy;
-              minDist = dist;
-            }
-          });
-          if (nearest) {
-            // Bomb projectile
-            spawnProjectile({
-              fromX: tower.x,
-              fromY: tower.y,
-              toX: nearest.x,
-              toY: nearest.y,
-              imgSrc: BOMB_PROJECTILE_IMG,
-              speed: 400,
-              onHit: () => {
-                enemies.forEach(enemy2 => {
-                  if (!enemy2.alive) return;
-                  if (AIR_TROOPS.includes(enemy2.troopName)) return;
-                  const dx = nearest.x - enemy2.x;
-                  const dy = nearest.y - enemy2.y;
-                  if (Math.sqrt(dx*dx + dy*dy) < BOMB_RADIUS) {
-                    enemy2.takeDamage(BOMB_DAMAGE);
-                  }
-                });
+        } else if (tower.name === 'Archer Tower') {
+          let lastShot = tower.lastShot || 0;
+          if (performance.now() - lastShot > 700) {
+            let nearest = null, minDist = Infinity;
+            this.enemies.forEach(enemy => {
+              if (!enemy.alive) return;
+              const dx = tower.x - enemy.x, dy = tower.y - enemy.y;
+              const dist = Math.sqrt(dx*dx + dy*dy);
+              if (dist < tower.radius && dist < minDist) {
+                nearest = enemy; minDist = dist;
               }
             });
-            tower.lastShot = performance.now();
-          }
-        }
-      } else if (tower.name === 'Wizard Tower') {
-        // Wizard Tower: fireball projectile
-        let lastShot = tower.lastShot || 0;
-        if (performance.now() - lastShot > 1200) {
-          let nearest = null, minDist = Infinity;
-          enemies.forEach(enemy => {
-            if (!enemy.alive) return;
-            const dx = tower.x - enemy.x;
-            const dy = tower.y - enemy.y;
-            const dist = Math.sqrt(dx*dx + dy*dy);
-            if (dist < tower.radius && dist < minDist) {
-              nearest = enemy;
-              minDist = dist;
+            if (nearest) {
+              new Projectile(this, {
+                fromX: tower.x, fromY: tower.y, toX: nearest.x, toY: nearest.y,
+                imgSrc: ARCHER_ARROW_IMG, speed: 600,
+                onHit: () => nearest.takeDamage(ARCHER_DAMAGE)
+              });
+              tower.lastShot = performance.now();
             }
-          });
-          if (nearest) {
-            spawnProjectile({
-              fromX: tower.x,
-              fromY: tower.y,
-              toX: nearest.x,
-              toY: nearest.y,
-              imgSrc: WIZARD_FIREBALL_IMG,
-              speed: 400,
-              onHit: () => nearest.takeDamage(60)
+          }
+        } else if (tower.name === 'Bomb Tower') {
+          let lastShot = tower.lastShot || 0;
+          if (performance.now() - lastShot > 1200) {
+            let nearest = null, minDist = Infinity;
+            this.enemies.forEach(enemy => {
+              if (!enemy.alive) return;
+              if (AIR_TROOPS.includes(enemy.troopName)) return;
+              const dx = tower.x - enemy.x, dy = tower.y - enemy.y;
+              const dist = Math.sqrt(dx*dx + dy*dy);
+              if (dist < tower.radius && dist < minDist) {
+                nearest = enemy; minDist = dist;
+              }
             });
-            tower.lastShot = performance.now();
+            if (nearest) {
+              new Projectile(this, {
+                fromX: tower.x, fromY: tower.y, toX: nearest.x, toY: nearest.y,
+                imgSrc: BOMB_PROJECTILE_IMG, speed: 400,
+                onHit: () => {
+                  this.enemies.forEach(enemy2 => {
+                    if (!enemy2.alive) return;
+                    if (AIR_TROOPS.includes(enemy2.troopName)) return;
+                    const dx = nearest.x - enemy2.x, dy = nearest.y - enemy2.y;
+                    if (Math.sqrt(dx*dx + dy*dy) < BOMB_RADIUS) {
+                      enemy2.takeDamage(BOMB_DAMAGE);
+                    }
+                  });
+                }
+              });
+              tower.lastShot = performance.now();
+            }
+          }
+        } else if (tower.name === 'Wizard Tower') {
+          let lastShot = tower.lastShot || 0;
+          if (performance.now() - lastShot > 1200) {
+            let nearest = null, minDist = Infinity;
+            this.enemies.forEach(enemy => {
+              if (!enemy.alive) return;
+              const dx = tower.x - enemy.x;
+              const dy = tower.y - enemy.y;
+              const dist = Math.sqrt(dx*dx + dy*dy);
+              if (dist < tower.radius && dist < minDist) {
+                nearest = enemy; minDist = dist;
+              }
+            });
+            if (nearest) {
+              new Projectile(this, {
+                fromX: tower.x, fromY: tower.y, toX: nearest.x, toY: nearest.y,
+                imgSrc: WIZARD_FIREBALL_IMG, speed: 400,
+                onHit: () => nearest.takeDamage(60)
+              });
+              tower.lastShot = performance.now();
+            }
           }
         }
-      }
-    });
-    setTimeout(towerAttackLoop, TOWER_ATTACK_INTERVAL);
+      });
+      setTimeout(() => this.towerAttackLoop(), TOWER_ATTACK_INTERVAL);
+    }
   }
-  towerAttackLoop();
+
+  // --- Start Game ---
+  window.BarrierOpsGame = new Game();
 
   window.addEventListener('DOMContentLoaded', () => {
     // Move coin display to be relative to the gameContainer (top right of map)
