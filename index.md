@@ -680,8 +680,9 @@ Author: Lars, Darsh, Pradyun
         troopName: 'Royal Ghost'
       }), "ghost");
     }
-    isValidTowerPlacement(x, y, radius) {
-      const buffer = 40;
+    isValidTowerPlacement(x, y, radius, towerName = null) {
+      // Prevent placing tower center on the path (within 10px of any path segment)
+      const onPathThreshold = 10;
       for (let i = 0; i < pathPoints.length - 1; i++) {
         const p1 = pathPoints[i], p2 = pathPoints[i + 1];
         const dx = p2.x - p1.x, dy = p2.y - p1.y, len2 = dx * dx + dy * dy;
@@ -692,7 +693,13 @@ Author: Lars, Darsh, Pradyun
         }
         const projX = p1.x + t * dx, projY = p1.y + t * dy;
         const d = Math.hypot(x - projX, y - projY);
-        if (d < buffer) return false;
+        if (d < onPathThreshold) return false;
+      }
+      // Check not overlapping with other towers, except allow Rage Beacon to overlap
+      for (const tower of this.placedTowers) {
+        const distTowers = Math.hypot(x - tower.x, y - tower.y);
+        if ((towerName === 'Rage Beacon' || tower.name === 'Rage Beacon')) continue;
+        if (distTowers < (radius + tower.radius - 20)) return false; // reduced minimum distance between towers
       }
       return true;
     }
@@ -902,6 +909,112 @@ Author: Lars, Darsh, Pradyun
               tower.lastShot = performance.now();
             }
           }
+        } else if (tower.name === 'Magic Tower') {
+          let lastShot = tower.lastShot || 0;
+          if (performance.now() - lastShot > 1000) {
+            // Find up to 4 enemies in a line (within a small angle from the first target)
+            let nearest = null, minDist = Infinity;
+            this.enemies.forEach(enemy => {
+              if (!enemy.alive) return;
+              const dx = tower.x - enemy.x, dy = tower.y - enemy.y;
+              const dist = Math.sqrt(dx*dx + dy*dy);
+              if (dist < tower.radius && dist < minDist) {
+                nearest = enemy; minDist = dist;
+              }
+            });
+            if (nearest) {
+              // Find up to 4 enemies in a line (angle threshold)
+              const angle = Math.atan2(nearest.y - tower.y, nearest.x - tower.x);
+              let pierced = 0;
+              this.enemies.forEach(enemy => {
+                if (!enemy.alive) return;
+                const dx = enemy.x - tower.x, dy = enemy.y - tower.y;
+                const dist = Math.sqrt(dx*dx + dy*dy);
+                const enemyAngle = Math.atan2(dy, dx);
+                const angleDiff = Math.abs(enemyAngle - angle);
+                if (dist < tower.radius && angleDiff < 0.25 && pierced < 4) {
+                  enemy.takeDamage(30);
+                  pierced++;
+                }
+              });
+              tower.lastShot = performance.now();
+            }
+          }
+        } else if (tower.name === 'Freeze Tower') {
+          let lastShot = tower.lastShot || 0;
+          if (performance.now() - lastShot > 2000) {
+            // Freeze all enemies in radius
+            this.enemies.forEach(enemy => {
+              if (!enemy.alive) return;
+              const dx = tower.x - enemy.x, dy = tower.y - enemy.y;
+              const dist = Math.sqrt(dx*dx + dy*dy);
+              if (dist < tower.radius) {
+                if (!enemy.frozenUntil || performance.now() > enemy.frozenUntil) {
+                  enemy.frozenUntil = performance.now() + 2000;
+                  const origSpeed = enemy.speed;
+                  enemy.speed = 0;
+                  setTimeout(() => { enemy.speed = origSpeed; }, 2000);
+                }
+              }
+            });
+            tower.lastShot = performance.now();
+          }
+        } else if (tower.name === 'Hunter Nest') {
+          let lastShot = tower.lastShot || 0;
+          if (performance.now() - lastShot > 1200) {
+            // Shotgun: damage all enemies in a cone in front of the nearest enemy
+            let nearest = null, minDist = Infinity;
+            this.enemies.forEach(enemy => {
+              if (!enemy.alive) return;
+              const dx = tower.x - enemy.x, dy = tower.y - enemy.y;
+              const dist = Math.sqrt(dx*dx + dy*dy);
+              if (dist < tower.radius && dist < minDist) {
+                nearest = enemy; minDist = dist;
+              }
+            });
+            if (nearest) {
+              const angle = Math.atan2(nearest.y - tower.y, nearest.x - tower.x);
+              this.enemies.forEach(enemy => {
+                if (!enemy.alive) return;
+                const dx = enemy.x - tower.x, dy = enemy.y - tower.y;
+                const dist = Math.sqrt(dx*dx + dy*dy);
+                const enemyAngle = Math.atan2(dy, dx);
+                const angleDiff = Math.abs(enemyAngle - angle);
+                if (dist < tower.radius && angleDiff < 0.5) {
+                  enemy.takeDamage(20);
+                }
+              });
+              tower.lastShot = performance.now();
+            }
+          }
+        } else if (tower.name === 'Lightning Obelisk') {
+          let lastShot = tower.lastShot || 0;
+          if (performance.now() - lastShot > 1500) {
+            // Chain lightning: hit up to 4 enemies, chaining between them
+            let targets = [];
+            this.enemies.forEach(enemy => {
+              if (!enemy.alive) return;
+              const dx = tower.x - enemy.x, dy = tower.y - enemy.y;
+              const dist = Math.sqrt(dx*dx + dy*dy);
+              if (dist < tower.radius) {
+                targets.push({enemy, dist});
+              }
+            });
+            targets.sort((a, b) => a.dist - b.dist);
+            targets = targets.slice(0, 4);
+            targets.forEach(t => t.enemy.takeDamage(35));
+            tower.lastShot = performance.now();
+          }
+        } else if (tower.name === 'Rage Beacon') {
+          // Support: increase attack speed of nearby towers
+          this.placedTowers.forEach(otherTower => {
+            if (otherTower === tower) return;
+            const dx = tower.x - otherTower.x, dy = tower.y - otherTower.y;
+            const dist = Math.sqrt(dx*dx + dy*dy);
+            if (dist < tower.radius) {
+              otherTower.rageUntil = performance.now() + 1000;
+            }
+          });
         }
       });
       setTimeout(() => this.towerAttackLoop(), TOWER_ATTACK_INTERVAL);
