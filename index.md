@@ -47,8 +47,32 @@ Author: Lars, Darsh, Pradyun
     z-index: 10;
     pointer-events: none;
   }
+
+  #pointsDisplay {
+    position: absolute;
+    left: 16px;
+    top: 16px;
+    min-width: 120px;
+    height: 48px;
+    background: rgba(0,0,0,0.7);
+    border: 2px solid #ffd700;
+    border-radius: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center; /* center horizontally */
+    font-size: 28px;
+    font-weight: bold;
+    color: #0074D9; /* blue text */
+    z-index: 10003;
+    box-shadow: 0 2px 8px #0008;
+    padding-left: 0; /* remove left padding for centering */
+    pointer-events: none;
+    text-shadow: 1px 1px 2px #000, 0 0 2px #000; /* black shadow for contrast */
+  }
 </style>
 
+<!-- Points Display -->
+<div id="pointsDisplay">Points: <span id="pointsAmount">0</span></div>
 <!-- Coin Display -->
 <div id="coinDisplay" style="min-width: 120px; height: 48px; background: rgba(255,215,0,0.15); border: 2px solid #ffd700; border-radius: 24px; display: flex; align-items: center; justify-content: center; font-size: 28px; font-weight: bold; color: #ffd700; z-index: 10002; box-shadow: 0 2px 8px #0008; pointer-events: none;">
   <span id="coinAmount" style="min-width: 60px; text-align: center; display: inline-block; flex: 1 1 auto;">0</span>
@@ -61,7 +85,10 @@ Author: Lars, Darsh, Pradyun
 </div>
 <div id="gameContainer"></div>
 
-<script>
+<script type="module">
+  // Import config values
+  import { pythonURI, fetchOptions } from '{{ site.baseurl }}/assets/js/api/config.js';
+
   // --- OOP Refactor ---
 
   // --- Utility ---
@@ -100,6 +127,84 @@ Author: Lars, Darsh, Pradyun
     { name: 'Lightning Obelisk', imageSrc: 'https://i.postimg.cc/br3cVGcF/image-2025-05-20-100433723.png', radius: 115, cost: 320 },
     { name: 'Rage Beacon', imageSrc: 'https://i.postimg.cc/PfKgj89S/image-2025-05-20-100521354.png', radius: 130, cost: 400 },
   ];
+
+  // --- Points API Integration ---
+  class Points {
+    constructor({ pythonURI, fetchOptions }) {
+      this.pythonURI = pythonURI;
+      this.fetchOptions = fetchOptions;
+      this.points = 0;
+      this.pointsDisplay = document.getElementById('pointsAmount');
+      this.init();
+    }
+
+    async init() {
+      await this.fetchPoints();
+      this.startAutoIncrement();
+    }
+
+    async fetchPoints() {
+      try {
+        const response = await fetch(`${this.pythonURI}/api/points`, {
+          ...this.fetchOptions,
+          method: 'GET',
+        });
+        if (!response.ok) throw new Error('Failed to fetch points');
+        const data = await response.json();
+        this.points = data.points?.points || 0;
+        this.updateDisplay();
+      } catch (error) {
+        console.error('Error fetching points:', error);
+      }
+    }
+
+    async addPoints(amount) {
+      try {
+        // Try to update (PUT), if not exists then POST
+        const response = await fetch(`${this.pythonURI}/api/points`, {
+          ...this.fetchOptions,
+          method: 'PUT',
+          headers: { ...this.fetchOptions.headers, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ points: this.points + amount })
+        });
+        let data;
+        if (response.ok) {
+          data = await response.json();
+        } else if (response.status === 404) {
+          // No entry, create new
+          const postResp = await fetch(`${this.pythonURI}/api/points`, {
+            ...this.fetchOptions,
+            method: 'POST',
+            headers: { ...this.fetchOptions.headers, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ points: amount })
+          });
+          data = await postResp.json();
+        } else {
+          data = await response.json();
+          throw new Error(data.message || 'Failed to add points');
+        }
+        this.points = data.points?.points || this.points + amount;
+        this.updateDisplay();
+      } catch (error) {
+        console.error('Error adding points:', error);
+      }
+    }
+
+    updateDisplay() {
+      if (this.pointsDisplay) {
+        this.pointsDisplay.textContent = this.points;
+      }
+    }
+
+    startAutoIncrement() {
+      setInterval(() => {
+        this.addPoints(5);
+      }, 20000);
+    }
+  }
+
+  // --- Usage Example ---
+  window.PointsAPI = new Points({ pythonURI, fetchOptions });
 
   // --- Classes ---
   class Enemy {
@@ -453,8 +558,8 @@ Author: Lars, Darsh, Pradyun
           this.userHealth = this.userMaxHealth;
           this.updateUserHealthBar();
           overlay.remove();
+          // --- Reset enemy spawns and intervals ---
           this.clearEnemySpawns();
-          // Reset spawn state (intervals and counts)
           this.resetSpawnState();
           // Reset spawn intervals and minion/skeleton counts
           this.currentIntervals = {...this.baseIntervals};
@@ -462,6 +567,33 @@ Author: Lars, Darsh, Pradyun
           this.minionSpawnCount = 1;
           this.globalSkeletonCount = 1;
           this.globalMinionCount = 1;
+          // --- End any pending skeleton/minion group spawns ---
+          if (this._skeletonGroupTimeout) {
+            clearTimeout(this._skeletonGroupTimeout);
+            this._skeletonGroupTimeout = null;
+          }
+          if (this._minionGroupTimeout) {
+            clearTimeout(this._minionGroupTimeout);
+            this._minionGroupTimeout = null;
+          }
+          // --- Replace spawnGroup to allow cancelation ---
+          this.spawnGroup = (count, spawnFn, delay = 150, groupType = null) => {
+            let spawned = 0;
+            const spawnNext = () => {
+              if (spawned < count) {
+                spawnFn(spawned);
+                spawned++;
+                if (groupType === "skeleton") {
+                  this._skeletonGroupTimeout = setTimeout(spawnNext, delay);
+                } else if (groupType === "minion") {
+                  this._minionGroupTimeout = setTimeout(spawnNext, delay);
+                } else {
+                  setTimeout(spawnNext, delay);
+                }
+              }
+            };
+            spawnNext();
+          };
           // Start enemy spawns again
           this.startEnemySpawns();
           this.spawnEnemy({
@@ -486,6 +618,15 @@ Author: Lars, Darsh, Pradyun
     clearEnemySpawns() {
       this.enemySpawnTimeouts.forEach(id => clearTimeout(id));
       this.enemySpawnTimeouts = [];
+      // --- Also clear any pending skeleton/minion group spawns ---
+      if (this._skeletonGroupTimeout) {
+        clearTimeout(this._skeletonGroupTimeout);
+        this._skeletonGroupTimeout = null;
+      }
+      if (this._minionGroupTimeout) {
+        clearTimeout(this._minionGroupTimeout);
+        this._minionGroupTimeout = null;
+      }
     }
     resetSpawnState() {
       this.skeletonSpawnCount = 1;
@@ -500,6 +641,24 @@ Author: Lars, Darsh, Pradyun
     startEnemySpawns() {
       this.clearEnemySpawns();
       this.resetSpawnState();
+      // --- Replace spawnGroup to allow cancelation ---
+      this.spawnGroup = (count, spawnFn, delay = 150, groupType = null) => {
+        let spawned = 0;
+        const spawnNext = () => {
+          if (spawned < count) {
+            spawnFn(spawned);
+            spawned++;
+            if (groupType === "skeleton") {
+              this._skeletonGroupTimeout = setTimeout(spawnNext, delay);
+            } else if (groupType === "minion") {
+              this._minionGroupTimeout = setTimeout(spawnNext, delay);
+            } else {
+              setTimeout(spawnNext, delay);
+            }
+          }
+        };
+        spawnNext();
+      };
       const spawnLoop = (spawnFn, intervalKey, onSpawn) => {
         let interval = this.currentIntervals[intervalKey];
         const loop = () => {
@@ -513,7 +672,7 @@ Author: Lars, Darsh, Pradyun
                 coinReward: 8,
                 troopName: 'Skeleton Army'
               });
-            }, 120);
+            }, 120, "skeleton");
             if (this.globalSkeletonCount < 64) {
               this.globalSkeletonCount = Math.min(this.globalSkeletonCount * 2, 64);
             }
@@ -527,7 +686,7 @@ Author: Lars, Darsh, Pradyun
                 coinReward: 6,
                 troopName: 'Minion Horde'
               });
-            }, 100);
+            }, 100, "minion");
             if (this.globalMinionCount < 5) this.globalMinionCount += 1;
           } else {
             if (onSpawn) onSpawn();
@@ -538,17 +697,6 @@ Author: Lars, Darsh, Pradyun
           this.enemySpawnTimeouts.push(setTimeout(loop, interval));
         };
         this.enemySpawnTimeouts.push(setTimeout(loop, interval));
-      };
-      this.spawnGroup = (count, spawnFn, delay = 150) => {
-        let spawned = 0;
-        const spawnNext = () => {
-          if (spawned < count) {
-            spawnFn(spawned);
-            spawned++;
-            setTimeout(spawnNext, delay);
-          }
-        };
-        spawnNext();
       };
       // ...existing code for all spawnLoop calls (giant, hog, skeleton, etc), but use this.spawnEnemy
       spawnLoop(() => this.spawnEnemy({
@@ -1036,6 +1184,13 @@ Author: Lars, Darsh, Pradyun
       coinDisplay.style.right = '';
       coinDisplay.style.pointerEvents = 'none';
       gameContainer.appendChild(coinDisplay);
+
+      // Position points display at top left of map
+      const pointsDisplay = document.getElementById('pointsDisplay');
+      pointsDisplay.style.position = 'absolute';
+      pointsDisplay.style.left = '16px';
+      pointsDisplay.style.top = '16px';
+      gameContainer.appendChild(pointsDisplay);
     }
     positionCoinDisplay();
     window.addEventListener('resize', positionCoinDisplay);
