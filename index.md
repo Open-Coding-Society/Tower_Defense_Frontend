@@ -52,10 +52,11 @@ Author: Lars, Darsh, Pradyun
     position: absolute;
     left: 16px;
     top: 16px;
-    min-width: 120px;
+    min-width: 0;
+    width: auto;
     height: 48px;
     background: rgba(0,0,0,0.7);
-    border: 2px solid #ffd700;
+    border: 2px solid #0074D9; /* border matches blue text */
     border-radius: 24px;
     display: flex;
     align-items: center;
@@ -65,17 +66,23 @@ Author: Lars, Darsh, Pradyun
     color: #0074D9; /* blue text */
     z-index: 10003;
     box-shadow: 0 2px 8px #0008;
-    padding-left: 0; /* remove left padding for centering */
+    padding: 0 18px;
     pointer-events: none;
     text-shadow: 1px 1px 2px #000, 0 0 2px #000; /* black shadow for contrast */
+  }
+  #pointsAmount {
+    min-width: 2ch;
+    display: inline-block;
+    text-align: right;
+    margin-left: 6px;
   }
 </style>
 
 <!-- Points Display -->
 <div id="pointsDisplay">Points: <span id="pointsAmount">0</span></div>
 <!-- Coin Display -->
-<div id="coinDisplay" style="min-width: 120px; height: 48px; background: rgba(255,215,0,0.15); border: 2px solid #ffd700; border-radius: 24px; display: flex; align-items: center; justify-content: center; font-size: 28px; font-weight: bold; color: #ffd700; z-index: 10002; box-shadow: 0 2px 8px #0008; pointer-events: none;">
-  <span id="coinAmount" style="min-width: 60px; text-align: center; display: inline-block; flex: 1 1 auto;">0</span>
+<div id="coinDisplay" style="min-width:0;width:auto;height:48px;background:rgba(255,215,0,0.15);border:2px solid #ffd700;border-radius:24px;display:flex;align-items:center;justify-content:center;font-size:28px;font-weight:bold;color:#ffd700;z-index:10002;box-shadow:0 2px 8px #0008;pointer-events:none;padding:0 18px;">
+  <span id="coinAmount" style="min-width:2ch;text-align:right;display:inline-block;flex:1 1 auto;margin-left:6px;">0</span>
 </div>
 
 <div id="userHealthBarContainer" style="width: 400px; height: 28px; margin: 16px auto 8px auto; position: relative; background: rgba(0,0,0,0.7); border-radius: 8px; border: 2px solid #fff; display: flex; align-items: center; justify-content: center;">
@@ -193,7 +200,7 @@ Author: Lars, Darsh, Pradyun
 
     updateDisplay() {
       if (this.pointsDisplay) {
-        this.pointsDisplay.textContent = this.points;
+        this.pointsDisplay.textContent = ' ' + this.points;
       }
     }
 
@@ -451,8 +458,8 @@ Author: Lars, Darsh, Pradyun
     }
 
     updateCoinDisplay() {
-      this.coinAmountEl.textContent = this.coins.toLocaleString();
-      this.coinAmountEl.parentElement.style.minWidth = (80 + Math.max(0, (this.coinAmountEl.textContent.length - 4) * 16)) + "px";
+      this.coinAmountEl.textContent = ' ' + this.coins.toLocaleString();
+      // No need to set minWidth, flex and padding handle expansion
     }
     addCoins(amount) {
       this.coins += amount;
@@ -844,11 +851,22 @@ Author: Lars, Darsh, Pradyun
         const d = Math.hypot(x - projX, y - projY);
         if (d < onPathThreshold) return false;
       }
-      // Check not overlapping with other towers, except allow Rage Beacon to overlap
+      // Rage Beacon: only check for overlap with other Rage Beacons
+      if (towerName === 'Rage Beacon') {
+        for (const tower of this.placedTowers) {
+          if (tower.name === 'Rage Beacon') {
+            const distTowers = Math.hypot(x - tower.x, y - tower.y);
+            if (distTowers < (radius + tower.radius - 20)) return false;
+          }
+        }
+        return true;
+      }
+      // For all other towers: only check for overlap with other towers' centers (not radii), except Rage Beacon
       for (const tower of this.placedTowers) {
+        if (tower.name === 'Rage Beacon') continue;
+        // Only prevent placing if the centers are too close (e.g., 50px apart)
         const distTowers = Math.hypot(x - tower.x, y - tower.y);
-        if ((towerName === 'Rage Beacon' || tower.name === 'Rage Beacon')) continue;
-        if (distTowers < (radius + tower.radius - 20)) return false; // reduced minimum distance between towers
+        if (distTowers < 50) return false;
       }
       return true;
     }
@@ -942,7 +960,7 @@ Author: Lars, Darsh, Pradyun
         const idx = e.dataTransfer.getData('towerIdx');
         const tower = towerData[idx];
         if (!tower) return;
-        if (!this.isValidTowerPlacement(x, y, tower.radius)) {
+        if (!this.isValidTowerPlacement(x, y, tower.radius, tower.name)) {
           alert('Cannot place tower here! Too close to path.');
           return;
         }
