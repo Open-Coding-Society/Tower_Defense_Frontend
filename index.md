@@ -111,8 +111,13 @@ Author: Lars, Darsh, Pradyun
   const BOMB_RADIUS = 50;
   const ARCHER_ARROW_IMG = 'https://i.postimg.cc/gjznhbcv/image-2025-05-21-114040090.png';
   const WIZARD_FIREBALL_IMG = 'https://i.postimg.cc/TwGw8vDZ/image-2025-05-21-114249663.png';
-  const BOMB_PROJECTILE_IMG = 'https://i.postimg.cc/L6qPCWkV/download-removebg-preview.png';
   const INFERNO_BEAM_IMG = 'https://i.postimg.cc/cLc8rtQv/image-2025-05-21-224441846.png';
+  const LIGHTNING_BOLT_IMG = 'https://i.postimg.cc/4dY56Q5L/image-2025-05-21-224712958.png';
+  const BOMB_PROJECTILE_IMG = 'https://i.postimg.cc/L6qPCWkV/download-removebg-preview.png';
+  const MAGIC_BEAM_IMG = 'https://i.postimg.cc/hGVgS6Ng/image-2025-05-21-225231613.png';
+  const HUNTER_CANNONBALL_IMG = 'https://i.postimg.cc/c1tDmc2t/image-2025-05-29-095416276.png';
+  const FREEZE_ICE_IMG = 'https://i.postimg.cc/k4vW1BQZ/image-2025-05-29-100856983.png';
+  const LIGHTNING_OBELISK_IMG = 'https://i.postimg.cc/4dYmty8V/image-2025-05-29-101044073.png';
 
   // --- Path Points ---
   const pathPoints = [
@@ -976,6 +981,7 @@ Author: Lars, Darsh, Pradyun
     towerAttackLoop() {
       this.placedTowers.forEach(tower => {
         if (tower.name === 'Inferno Tower') {
+          // --- Continuous Laser Logic ---
           let nearest = null, minDist = Infinity;
           this.enemies.forEach(enemy => {
             if (!enemy.alive) return;
@@ -986,20 +992,54 @@ Author: Lars, Darsh, Pradyun
             }
           });
           if (nearest) {
-            let state = this.towerAttackState.get(tower) || { target: null, ramp: 0, lastTime: 0 };
-            if (state.target === nearest) {
-              if (!state.lastTime || performance.now() - state.lastTime > TOWER_ATTACK_INTERVAL * 2) {
-                state.ramp = Math.min(state.ramp + 1, INFERNO_RAMP.length - 1);
-                state.lastTime = performance.now();
-              }
-            } else {
+            let state = this.towerAttackState.get(tower) || { target: null, ramp: 0, lastTime: 0, laserEl: null, lastDamage: 0 };
+            if (state.target !== nearest) {
+              // New target, reset ramp and create laser
               state.target = nearest;
               state.ramp = 0;
               state.lastTime = performance.now();
+              state.lastDamage = 0;
+              if (state.laserEl) state.laserEl.remove();
+              // Create laser DOM element
+              const laser = document.createElement('div');
+              laser.className = 'inferno-laser';
+              laser.style.position = 'absolute';
+              laser.style.pointerEvents = 'none';
+              laser.style.zIndex = 30;
+              laser.style.background = 'linear-gradient(90deg, #ff9800, #ffeb3b, #ff9800)';
+              laser.style.boxShadow = '0 0 16px 4px #ff9800cc';
+              laser.style.height = '6px';
+              this.gameContainer.appendChild(laser);
+              state.laserEl = laser;
             }
-            nearest.takeDamage(INFERNO_RAMP[state.ramp]);
+            // Update laser position and angle
+            const dx = nearest.x - tower.x, dy = nearest.y - tower.y;
+            const dist = Math.sqrt(dx*dx + dy*dy);
+            const angle = Math.atan2(dy, dx) * 180 / Math.PI;
+            state.laserEl.style.left = `${tower.x}px`;
+            state.laserEl.style.top = `${tower.y - 3}px`;
+            state.laserEl.style.width = `${dist}px`;
+            state.laserEl.style.transform = `rotate(${angle}deg)`;
+            state.laserEl.style.opacity = '1';
+            // Damage ramping every 100ms
+            const now = performance.now();
+            if (!state.lastDamage || now - state.lastDamage > 100) {
+              // Ramp up every 600ms
+              if (now - state.lastTime > 600 && state.ramp < INFERNO_RAMP.length - 1) {
+                state.ramp++;
+                state.lastTime = now;
+              }
+              nearest.takeDamage(INFERNO_RAMP[state.ramp]);
+              state.lastDamage = now;
+            }
             this.towerAttackState.set(tower, state);
           } else {
+            // No target, remove laser if exists
+            let state = this.towerAttackState.get(tower);
+            if (state && state.laserEl) {
+              state.laserEl.style.opacity = '0';
+              setTimeout(() => { if (state.laserEl) state.laserEl.remove(); }, 200);
+            }
             this.towerAttackState.delete(tower);
           }
         } else if (tower.name === 'Archer Tower') {
@@ -1079,7 +1119,6 @@ Author: Lars, Darsh, Pradyun
         } else if (tower.name === 'Magic Tower') {
           let lastShot = tower.lastShot || 0;
           if (performance.now() - lastShot > 1000) {
-            // Find up to 4 enemies in a line (within a small angle from the first target)
             let nearest = null, minDist = Infinity;
             this.enemies.forEach(enemy => {
               if (!enemy.alive) return;
@@ -1090,7 +1129,6 @@ Author: Lars, Darsh, Pradyun
               }
             });
             if (nearest) {
-              // Find up to 4 enemies in a line (angle threshold)
               const angle = Math.atan2(nearest.y - tower.y, nearest.x - tower.x);
               let pierced = 0;
               this.enemies.forEach(enemy => {
@@ -1100,7 +1138,11 @@ Author: Lars, Darsh, Pradyun
                 const enemyAngle = Math.atan2(dy, dx);
                 const angleDiff = Math.abs(enemyAngle - angle);
                 if (dist < tower.radius && angleDiff < 0.25 && pierced < 4) {
-                  enemy.takeDamage(30);
+                  new Projectile(this, {
+                    fromX: tower.x, fromY: tower.y, toX: enemy.x, toY: enemy.y,
+                    imgSrc: MAGIC_BEAM_IMG, speed: 700,
+                    onHit: () => enemy.takeDamage(30)
+                  });
                   pierced++;
                 }
               });
@@ -1110,17 +1152,22 @@ Author: Lars, Darsh, Pradyun
         } else if (tower.name === 'Freeze Tower') {
           let lastShot = tower.lastShot || 0;
           if (performance.now() - lastShot > 2000) {
-            // Freeze all enemies in radius
             this.enemies.forEach(enemy => {
               if (!enemy.alive) return;
               const dx = tower.x - enemy.x, dy = tower.y - enemy.y;
               const dist = Math.sqrt(dx*dx + dy*dy);
               if (dist < tower.radius) {
                 if (!enemy.frozenUntil || performance.now() > enemy.frozenUntil) {
-                  enemy.frozenUntil = performance.now() + 2000;
-                  const origSpeed = enemy.speed;
-                  enemy.speed = 0;
-                  setTimeout(() => { enemy.speed = origSpeed; }, 2000);
+                  new Projectile(this, {
+                    fromX: tower.x, fromY: tower.y, toX: enemy.x, toY: enemy.y,
+                    imgSrc: FREEZE_ICE_IMG, speed: 500,
+                    onHit: () => {
+                      enemy.frozenUntil = performance.now() + 2000;
+                      const origSpeed = enemy.speed;
+                      enemy.speed = 0;
+                      setTimeout(() => { enemy.speed = origSpeed; }, 2000);
+                    }
+                  });
                 }
               }
             });
@@ -1129,7 +1176,6 @@ Author: Lars, Darsh, Pradyun
         } else if (tower.name === 'Hunter Nest') {
           let lastShot = tower.lastShot || 0;
           if (performance.now() - lastShot > 1200) {
-            // Shotgun: damage all enemies in a cone in front of the nearest enemy
             let nearest = null, minDist = Infinity;
             this.enemies.forEach(enemy => {
               if (!enemy.alive) return;
@@ -1148,7 +1194,11 @@ Author: Lars, Darsh, Pradyun
                 const enemyAngle = Math.atan2(dy, dx);
                 const angleDiff = Math.abs(enemyAngle - angle);
                 if (dist < tower.radius && angleDiff < 0.5) {
-                  enemy.takeDamage(20);
+                  new Projectile(this, {
+                    fromX: tower.x, fromY: tower.y, toX: enemy.x, toY: enemy.y,
+                    imgSrc: HUNTER_CANNONBALL_IMG, speed: 600,
+                    onHit: () => enemy.takeDamage(20)
+                  });
                 }
               });
               tower.lastShot = performance.now();
@@ -1157,7 +1207,6 @@ Author: Lars, Darsh, Pradyun
         } else if (tower.name === 'Lightning Obelisk') {
           let lastShot = tower.lastShot || 0;
           if (performance.now() - lastShot > 1500) {
-            // Chain lightning: hit up to 4 enemies, chaining between them
             let targets = [];
             this.enemies.forEach(enemy => {
               if (!enemy.alive) return;
@@ -1169,8 +1218,35 @@ Author: Lars, Darsh, Pradyun
             });
             targets.sort((a, b) => a.dist - b.dist);
             targets = targets.slice(0, 4);
-            targets.forEach(t => t.enemy.takeDamage(35));
+            targets.forEach(t => {
+              new Projectile(this, {
+                fromX: tower.x, fromY: tower.y, toX: t.enemy.x, toY: t.enemy.y,
+                imgSrc: LIGHTNING_BOLT_IMG, speed: 900,
+                onHit: () => t.enemy.takeDamage(35)
+              });
+            });
             tower.lastShot = performance.now();
+          }
+        } else if (tower.name === 'Tesla Coil') {
+          let lastShot = tower.lastShot || 0;
+          if (performance.now() - lastShot > 900) {
+            let nearest = null, minDist = Infinity;
+            this.enemies.forEach(enemy => {
+              if (!enemy.alive) return;
+              const dx = tower.x - enemy.x, dy = tower.y - enemy.y;
+              const dist = Math.sqrt(dx*dx + dy*dy);
+              if (dist < tower.radius && dist < minDist) {
+                nearest = enemy; minDist = dist;
+              }
+            });
+            if (nearest) {
+              new Projectile(this, {
+                fromX: tower.x, fromY: tower.y, toX: nearest.x, toY: nearest.y,
+                imgSrc: LIGHTNING_BOLT_IMG, speed: 800,
+                onHit: () => nearest.takeDamage(40)
+              });
+              tower.lastShot = performance.now();
+            }
           }
         } else if (tower.name === 'Rage Beacon') {
           // Support: increase attack speed of nearby towers
