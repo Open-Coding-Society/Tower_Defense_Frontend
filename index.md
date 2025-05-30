@@ -583,6 +583,11 @@ Author: Lars, Darsh, Pradyun
           document.querySelectorAll('.tower').forEach(el => el.remove());
           document.querySelectorAll('.tower-radius').forEach(el => el.remove());
           this.placedTowers.length = 0;
+          // --- Remove all inferno lasers, tower levels, upgrade buttons, and projectiles ---
+          document.querySelectorAll('.inferno-laser').forEach(el => el.remove());
+          document.querySelectorAll('.tower-level').forEach(el => el.remove());
+          document.querySelectorAll('.upgrade-btn').forEach(el => el.remove());
+          document.querySelectorAll('.projectile').forEach(el => el.remove());
           // Reset user health
           this.userHealth = this.userMaxHealth;
           this.updateUserHealthBar();
@@ -1161,10 +1166,12 @@ Author: Lars, Darsh, Pradyun
             const dx = nearest.x - tower.x, dy = nearest.y - tower.y;
             const dist = Math.sqrt(dx*dx + dy*dy);
             const angle = Math.atan2(dy, dx) * 180 / Math.PI;
-            state.laserEl.style.left = `${tower.x}px`;
+            // --- Center the laser visually so its right end is at the tower center ---
+            state.laserEl.style.left = `${tower.x - 25 - dist}px`; // start laser so right edge is at tower center
             state.laserEl.style.top = `${tower.y - 3}px`;
             state.laserEl.style.width = `${dist}px`;
             state.laserEl.style.transform = `rotate(${angle}deg)`;
+            state.laserEl.style.transformOrigin = `right center`;
             state.laserEl.style.opacity = '1';
             // Damage ramping every 100ms
             const now = performance.now();
