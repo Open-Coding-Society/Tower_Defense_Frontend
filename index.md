@@ -431,6 +431,8 @@ Author: Lars, Darsh, Pradyun
       this.userHealthText = document.getElementById("userHealthText");
       this.userHealthBarContainer = document.getElementById("userHealthBarContainer");
 
+      this.upgrades = new Upgrades(this);
+
       // State
       this.coins = 500;
       this.userHealth = 5000;
@@ -979,7 +981,7 @@ Author: Lars, Darsh, Pradyun
   }
 
   this.spendCoins(upgradeCost);
-  upgradeTower(tower, this);
+  this.upgrades.upgradeTower(tower);
   this.renderTowers();
   upgradeBtn.remove();
 };
@@ -1409,65 +1411,53 @@ Author: Lars, Darsh, Pradyun
       setTimeout(() => this.towerAttackLoop(), TOWER_ATTACK_INTERVAL);
     }
   }
-function upgradeTower(tower, game) {
-  if (typeof tower.level !== 'number') tower.level = 0;
-
-  if (tower.level >= 5) {
-    alert("Max level reached!");
-    return;
+class Upgrades {
+  constructor(game) {
+    this.game = game;
   }
 
-  const upgradeCost = 100 * (tower.level + 1);
-  if (game.coins < upgradeCost) {
-    alert("Not enough coins!");
-    return;
-  }
+  upgradeTower(tower) {
+    if (typeof tower.level !== 'number') tower.level = 0;
 
-  game.spendCoins(upgradeCost);
-  tower.level++;
-
-  if (tower.name === 'Archer Tower') {
-    switch (tower.level) {
-      case 1:
-        tower.fireRate = 700 / 3;
-        break;
-      case 2:
-        tower.radius *= 3;
-        break;
-      case 3:
-        tower.pierce = true;
-        break;
-      case 4:
-        tower.multiShot = true;
-        break;
-      case 5:
-        tower.abilityReady = true; // You can activate this manually elsewhere
-        break;
+    if (tower.level >= 5) {
+      alert("Max level reached!");
+      return;
     }
-  }
 
-  if (tower.name === 'Wizard Tower') {
-    switch (tower.level) {
-      case 1:
-        tower.aoe = true; // Fireball now has AoE (Area of Effect)
-        break;
-      case 2:
-        tower.fireRate = 1200 / 10; // 10x faster
-        break;
-      case 3:
-        tower.wallOfFireTimer = performance.now(); // Initialize wall of fire timer
-        tower.wallOfFireInterval = 30000; // Every 30s
-        break;
-      case 4:
-        tower.pierce = 3; // Can hit up to 3 targets
-        break;
-      case 5:
-        tower.fireballDroneActive = true; // Set a flag to allow activation
-        break;
+    const upgradeCost = 100 * (tower.level + 1);
+    if (this.game.coins < upgradeCost) {
+      alert("Not enough coins!");
+      return;
     }
-  }
 
-  game.renderTowers?.();
+    this.game.spendCoins(upgradeCost);
+    tower.level++;
+
+    if (tower.name === 'Archer Tower') {
+      switch (tower.level) {
+        case 1: tower.fireRate = 700 / 3; break;
+        case 2: tower.radius *= 3; break;
+        case 3: tower.pierce = true; break;
+        case 4: tower.multiShot = true; break;
+        case 5: tower.abilityReady = true; break;
+      }
+    }
+
+    if (tower.name === 'Wizard Tower') {
+      switch (tower.level) {
+        case 1: tower.aoe = true; break;
+        case 2: tower.fireRate = 1200 / 10; break;
+        case 3:
+          tower.wallOfFireTimer = performance.now();
+          tower.wallOfFireInterval = 30000;
+          break;
+        case 4: tower.pierce = 3; break;
+        case 5: tower.fireballDroneActive = true; break;
+      }
+    }
+
+    this.game.renderTowers?.();
+  }
 }
   // --- Start Game ---
   window.BarrierOpsGame = new Game();
