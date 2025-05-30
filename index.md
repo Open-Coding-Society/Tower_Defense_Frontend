@@ -1426,14 +1426,44 @@ function upgradeTower(tower, game) {
   game.spendCoins(upgradeCost);
   tower.level++;
 
-  // Apply upgrades based on level
   if (tower.name === 'Archer Tower') {
     switch (tower.level) {
-      case 1: tower.fireRate = 700 / 3; break;
-      case 2: tower.radius *= 3; break;
-      case 3: tower.pierce = true; break;
-      case 4: tower.multiShot = true; break;
-      case 5: tower.abilityReady = true; break;
+      case 1:
+        tower.fireRate = 700 / 3;
+        break;
+      case 2:
+        tower.radius *= 3;
+        break;
+      case 3:
+        tower.pierce = true;
+        break;
+      case 4:
+        tower.multiShot = true;
+        break;
+      case 5:
+        tower.abilityReady = true; // You can activate this manually elsewhere
+        break;
+    }
+  }
+
+  if (tower.name === 'Wizard Tower') {
+    switch (tower.level) {
+      case 1:
+        tower.aoe = true; // Fireball now has AoE (Area of Effect)
+        break;
+      case 2:
+        tower.fireRate = 1200 / 10; // 10x faster
+        break;
+      case 3:
+        tower.wallOfFireTimer = performance.now(); // Initialize wall of fire timer
+        tower.wallOfFireInterval = 30000; // Every 30s
+        break;
+      case 4:
+        tower.pierce = 3; // Can hit up to 3 targets
+        break;
+      case 5:
+        tower.fireballDroneActive = true; // Set a flag to allow activation
+        break;
     }
   }
 
