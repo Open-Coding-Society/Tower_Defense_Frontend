@@ -884,35 +884,84 @@ Author: Lars, Darsh, Pradyun
       return true;
     }
     renderTowers() {
-      document.querySelectorAll('.tower').forEach(el => el.remove());
-      document.querySelectorAll('.tower-radius').forEach(el => el.remove());
-      this.placedTowers.forEach(tower => {
-        const radiusDiv = document.createElement('div');
-        radiusDiv.className = 'tower-radius';
-        radiusDiv.style.position = 'absolute';
-        radiusDiv.style.left = `${tower.x - tower.radius}px`;
-        radiusDiv.style.top = `${tower.y - tower.radius}px`;
-        radiusDiv.style.width = `${tower.radius * 2}px`;
-        radiusDiv.style.height = `${tower.radius * 2}px`;
-        radiusDiv.style.borderRadius = '50%';
-        radiusDiv.style.background = 'rgba(0, 200, 255, 0.15)';
-        radiusDiv.style.border = '2px dashed #00bcd4';
-        radiusDiv.style.pointerEvents = 'none';
-        radiusDiv.style.zIndex = 10;
-        this.gameContainer.appendChild(radiusDiv);
-        const img = document.createElement('img');
-        img.src = tower.imageSrc;
-        img.className = 'tower';
-        img.style.position = 'absolute';
-        img.style.left = `${tower.x - 25}px`;
-        img.style.top = `${tower.y - 25}px`;
-        img.style.width = '50px';
-        img.style.height = '50px';
-        img.title = tower.name;
-        img.style.zIndex = 15;
-        this.gameContainer.appendChild(img);
-      });
-    }
+  document.querySelectorAll('.tower').forEach(el => el.remove());
+  document.querySelectorAll('.tower-radius').forEach(el => el.remove());
+
+  this.placedTowers.forEach(tower => {
+      // Radius
+      const radiusDiv = document.createElement('div');
+  radiusDiv.className = 'tower-radius';
+  radiusDiv.style.position = 'absolute'; // 🔧 ensure positioning
+  radiusDiv.style.left = `${tower.x - tower.radius}px`;
+  radiusDiv.style.top = `${tower.y - tower.radius}px`;
+  radiusDiv.style.width = `${tower.radius * 2}px`;
+  radiusDiv.style.height = `${tower.radius * 2}px`;
+  radiusDiv.style.borderRadius = '50%';
+  radiusDiv.style.background = 'rgba(0, 200, 255, 0.15)';
+  radiusDiv.style.border = '2px dashed #00bcd4';
+  radiusDiv.style.pointerEvents = 'none';
+  radiusDiv.style.zIndex = 10;
+  this.gameContainer.appendChild(radiusDiv);
+
+    // Tower image
+    const img = document.createElement('img');
+    img.src = tower.imageSrc;
+    img.className = 'tower';
+    img.style.left = `${tower.x - 25}px`;
+    img.style.top = `${tower.y - 25}px`;
+    img.style.width = '50px';
+    img.style.height = '50px';
+    img.title = tower.name;
+    img.style.cursor = 'pointer';
+    img.onclick = () => this.showUpgradeButton(tower); // 💡 click for upgrade
+    this.gameContainer.appendChild(img);
+
+    // Level label
+    const label = document.createElement('div');
+    label.textContent = `Lv. ${tower.level || 0}`;
+    label.style.position = 'absolute';
+    label.style.left = `${tower.x - 10}px`;
+    label.style.top = `${tower.y + 30}px`;
+    label.style.color = '#fff';
+    label.style.fontSize = '14px';
+    label.style.fontWeight = 'bold';
+    label.style.zIndex = 16;
+    label.style.pointerEvents = 'none';
+    this.gameContainer.appendChild(label);
+
+    img.onclick = () => {
+  const existing = document.getElementById('upgradeBtn');
+  if (existing) {
+    existing.remove();
+    return;
+  }
+
+  const btn = document.createElement('button');
+  btn.textContent = "Upgrade";
+  btn.id = 'upgradeBtn';
+  btn.style.position = 'absolute';
+  btn.style.left = `${tower.x + 30}px`;
+  btn.style.top = `${tower.y - 20}px`;
+  btn.style.zIndex = 1000;
+  btn.style.padding = '4px 10px';
+  btn.style.background = '#28a745';
+  btn.style.color = 'white';
+  btn.style.border = 'none';
+  btn.style.borderRadius = '4px';
+  btn.style.cursor = 'pointer';
+
+  btn.onclick = (e) => {
+    e.stopPropagation(); // Prevent triggering img.onclick again
+    upgradeTower(tower);
+    btn.remove(); // Remove button after click
+    this.renderTowers(); // Re-render to show updated level
+  };
+
+  this.gameContainer.appendChild(btn);
+};
+  });
+}
+
     showTowerMenu() {
       let menu = document.getElementById('towerMenu');
       if (menu) menu.remove();
