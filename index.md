@@ -958,15 +958,9 @@ Author: Lars, Darsh, Pradyun
       upgradeBtn.style.color = '#fff';
 
       upgradeBtn.onclick = (e) => {
-        e.stopPropagation();
-        try {
-          upgradeTower(tower);
-          upgradeBtn.remove();
-          this.renderTowers();
-        } catch (err) {
-          console.error("Upgrade error:", err);
-        }
-      };
+  e.stopPropagation();
+  upgradeTower(tower, game); // make sure `this` is your Game instance
+};
 
       this.gameContainer.appendChild(upgradeBtn);
     };
@@ -1393,38 +1387,44 @@ Author: Lars, Darsh, Pradyun
       setTimeout(() => this.towerAttackLoop(), TOWER_ATTACK_INTERVAL);
     }
   }
-  function upgradeTower(tower) {
-  if (tower.level >= 5) return; // Max level cap
+ function upgradeTower(tower, game) {
+  const cost = 100;
+
+  if (!tower || !game || typeof game.spendCoins !== 'function') return;
+
+  if (tower.level >= 5) return;
+
+  if (!game.spendCoins(cost)) {
+    alert("Not enough coins!");
+    return;
+  }
 
   tower.level++;
 
   if (tower.name === 'Archer Tower') {
     switch (tower.level) {
       case 1:
-        tower.fireRate = 700 / 3; // Faster shooting
+        tower.fireRate = 700 / 3;
         break;
       case 2:
-        tower.radius *= 3; // Bigger range
+        tower.radius *= 1.5;
         break;
       case 3:
-        tower.pierce = true; // Hit more than one target
+        tower.pierce = true;
         break;
       case 4:
-        tower.multiShot = true; // Shoot 3 arrows
+        tower.multiShot = true;
         break;
       case 5:
-        tower.abilityReady = true; // Ultimate ability
+        tower.abilityReady = true;
         break;
     }
   }
 
-  // Re-render towers to reflect changes
-  if (typeof game !== 'undefined' && typeof game.renderTowers === 'function') {
-    game.renderTowers(); // Assuming `game` is your main class instance
+  if (typeof game.renderTowers === 'function') {
+    game.renderTowers();
   }
 }
-
-
 
   // --- Start Game ---
   window.BarrierOpsGame = new Game();
