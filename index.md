@@ -6,47 +6,55 @@ Author: Lars, Darsh, Pradyun
 ---
 
 <style>
-  body {
-    margin: 0;
-    background-color: #000;
-  }
+    body {
+      margin: 0;
+      background-color: #000;
+    }
 
-  #gameContainer {
-    width: 1000px;
-    height: 600px;
-    margin: auto;
-    background-image: url('https://i.postimg.cc/FzCm3vpj/Screenshot-2025-05-13-at-10-04-00-AM.png');
-    background-size: cover;
-    background-position: center;
-    border: 2px solid white;
-    position: relative;
-  }
+    #gameContainer {
+      width: 1000px;
+      height: 600px;
+      margin: auto;
+      background-image: url('https://i.postimg.cc/FzCm3vpj/Screenshot-2025-05-13-at-10-04-00-AM.png');
+      background-size: cover;
+      background-position: center;
+      border: 2px solid white;
+      position: relative;
+    }
 
-  .path-point {
-    width: 10px;
-    height: 10px;
-    background-color: red;
-    position: absolute;
-    border-radius: 50%;
-    z-index: 10;
-  }
+    .tower {
+      position: absolute;
+      width: 50px;
+      height: 50px;
+      z-index: 15;
+    }
 
-  .enemy {
-    position: absolute;
-    z-index: 5;
-    pointer-events: none;
-  }
+    .tower-label {
+      position: absolute;
+      font-size: 12px;
+      font-weight: bold;
+      color: yellow;
+      text-shadow: 1px 1px 2px #000;
+      z-index: 16;
+    }
 
-  .tower {
-    position: absolute;
-    z-index: 15;
-  }
+    .upgrade-btn {
+      position: absolute;
+      font-size: 10px;
+      background: #222;
+      color: #0f0;
+      border: 1px solid #0f0;
+      border-radius: 4px;
+      padding: 2px 4px;
+      cursor: pointer;
+      z-index: 17;
+    }
 
-  .tower-radius {
-    position: absolute;
-    z-index: 10;
-    pointer-events: none;
-  }
+    .enemy {
+      position: absolute;
+      z-index: 5;
+      pointer-events: none;
+    }
 
   #pointsDisplay {
     position: absolute;
@@ -978,6 +986,65 @@ Author: Lars, Darsh, Pradyun
         this.renderTowers();
       };
     }
+    upgrade() {
+        if (coins < this.upgradeCost || this.level >= 5) return;
+        coins -= this.upgradeCost;
+        coinCount.textContent = coins;
+        this.level++;
+        this.label.textContent = `Lvl ${this.level}`;
+        this.applyUpgrade();
+      }
+
+      applyUpgrade() {
+        if (this.level === 1) this.attackSpeed /= 3;
+        else if (this.level === 2) this.radius *= 3;
+        else if (this.level === 3) this.multiShot = true;
+        else if (this.level === 4) this.attackSpeed /= 1.5;
+        else if (this.level === 5) {
+          this.activateAbility();
+          this.upgradeBtn.remove();
+        }
+      }
+      activateAbility(tower) {
+  if (tower.name !== 'Archer Tower' || tower.level < 5) return;
+
+  // Temporarily enhance tower for 5 seconds
+  const originalLastShot = tower.lastShot || 0;
+  const enhancedDamage = ARCHER_DAMAGE * 10;
+  const originalFireRate = 700;
+
+  const abilityDuration = 5000;
+  const startTime = performance.now();
+
+  const shootLoop = () => {
+    const now = performance.now();
+    if (now - (tower.lastShot || 0) >= TOWER_ATTACK_INTERVAL / 5) {
+      this.enemies.forEach(enemy => {
+        if (!enemy.alive) return;
+        const dx = tower.x - enemy.x;
+        const dy = tower.y - enemy.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist < tower.radius) {
+          new Projectile(this, {
+            fromX: tower.x,
+            fromY: tower.y,
+            toX: enemy.x,
+            toY: enemy.y,
+            imgSrc: ARCHER_ARROW_IMG,
+            speed: 700,
+            onHit: () => enemy.takeDamage(enhancedDamage)
+          });
+        }
+      });
+      tower.lastShot = now;
+    }
+    if (now - startTime < abilityDuration) {
+      requestAnimationFrame(shootLoop);
+    }
+  };
+
+  shootLoop();
+}
     towerAttackLoop() {
       this.placedTowers.forEach(tower => {
         if (tower.name === 'Inferno Tower') {
