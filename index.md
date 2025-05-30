@@ -957,9 +957,20 @@ Author: Lars, Darsh, Pradyun
       upgradeBtn.style.background = '#28a745';
       upgradeBtn.style.color = '#fff';
 
-      upgradeBtn.onclick = (e) => {
-  e.stopPropagation();
-  upgradeTower(tower, game); // make sure `this` is your Game instance
+     upgradeBtn.onclick = (e) => {
+  try {
+    e.stopPropagation();
+    if (tower.level < 5 && this.coins >= tower.cost) {
+      this.spendCoins(tower.cost); // ⬅️ using `this` instead of `game`
+      upgradeTower(tower, this);   // ⬅️ pass `this` as game
+      this.renderTowers();
+    } else {
+      alert("Not enough coins or max level reached.");
+    }
+    upgradeBtn.remove();
+  } catch (err) {
+    console.error("Upgrade error:", err);
+  }
 };
 
       this.gameContainer.appendChild(upgradeBtn);
@@ -1387,25 +1398,11 @@ Author: Lars, Darsh, Pradyun
       setTimeout(() => this.towerAttackLoop(), TOWER_ATTACK_INTERVAL);
     }
   }
- function upgradeTower(tower) {
-  const game = window.game; // safely access your game instance
-
-  if (!tower || !game || typeof game.spendCoins !== 'function') return;
-
-  if (tower.level >= 5) return; // Max level cap
-
-  const upgradeCost = 100; // 🔁 you can customize this per level or tower
-
-  if (game.coins < upgradeCost) {
-    alert("Not enough coins!");
-    return;
-  }
-
-  game.spendCoins(upgradeCost); // Deduct coins ✅
+ function upgradeTower(tower, gameInstance) {
+  if (tower.level >= 5) return;
 
   tower.level++;
 
-  // Apply upgrades based on level
   if (tower.name === 'Archer Tower') {
     switch (tower.level) {
       case 1:
@@ -1426,8 +1423,9 @@ Author: Lars, Darsh, Pradyun
     }
   }
 
-  game.renderTowers?.(); // Refresh tower visuals
+  gameInstance?.renderTowers?.(); // safe call
 }
+
   // --- Start Game ---
   window.BarrierOpsGame = new Game();
 
