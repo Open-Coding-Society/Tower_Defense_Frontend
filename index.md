@@ -1157,18 +1157,21 @@ Author: Lars, Darsh, Pradyun
               const dx = tower.x - enemy.x, dy = tower.y - enemy.y;
               const dist = Math.sqrt(dx*dx + dy*dy);
               if (dist < tower.radius) {
-                if (!enemy.frozenUntil || performance.now() > enemy.frozenUntil) {
-                  new Projectile(this, {
-                    fromX: tower.x, fromY: tower.y, toX: enemy.x, toY: enemy.y,
-                    imgSrc: FREEZE_ICE_IMG, speed: 500,
-                    onHit: () => {
-                      enemy.frozenUntil = performance.now() + 2000;
-                      const origSpeed = enemy.speed;
-                      enemy.speed = 0;
-                      setTimeout(() => { enemy.speed = origSpeed; }, 2000);
-                    }
-                  });
-                }
+                new Projectile(this, {
+                  fromX: tower.x, fromY: tower.y, toX: enemy.x, toY: enemy.y,
+                  imgSrc: FREEZE_ICE_IMG, speed: 500,
+                  onHit: () => {
+                    enemy.frozenUntil = performance.now() + 2000;
+                    if (enemy._origSpeed === undefined) enemy._origSpeed = enemy.speed;
+                    enemy.speed = enemy._origSpeed * 0.6;
+                    setTimeout(() => {
+                      // Only restore if not re-frozen
+                      if (performance.now() > enemy.frozenUntil) {
+                        enemy.speed = enemy._origSpeed;
+                      }
+                    }, 2000);
+                  }
+                });
               }
             });
             tower.lastShot = performance.now();
