@@ -1387,27 +1387,32 @@ Author: Lars, Darsh, Pradyun
       setTimeout(() => this.towerAttackLoop(), TOWER_ATTACK_INTERVAL);
     }
   }
- function upgradeTower(tower, game) {
-  const cost = 100;
+ function upgradeTower(tower) {
+  const game = window.game; // safely access your game instance
 
   if (!tower || !game || typeof game.spendCoins !== 'function') return;
 
-  if (tower.level >= 5) return;
+  if (tower.level >= 5) return; // Max level cap
 
-  if (!game.spendCoins(cost)) {
+  const upgradeCost = 100; // 🔁 you can customize this per level or tower
+
+  if (game.coins < upgradeCost) {
     alert("Not enough coins!");
     return;
   }
 
+  game.spendCoins(upgradeCost); // Deduct coins ✅
+
   tower.level++;
 
+  // Apply upgrades based on level
   if (tower.name === 'Archer Tower') {
     switch (tower.level) {
       case 1:
         tower.fireRate = 700 / 3;
         break;
       case 2:
-        tower.radius *= 1.5;
+        tower.radius *= 3;
         break;
       case 3:
         tower.pierce = true;
@@ -1421,11 +1426,8 @@ Author: Lars, Darsh, Pradyun
     }
   }
 
-  if (typeof game.renderTowers === 'function') {
-    game.renderTowers();
-  }
+  game.renderTowers?.(); // Refresh tower visuals
 }
-
   // --- Start Game ---
   window.BarrierOpsGame = new Game();
 
