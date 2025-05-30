@@ -479,9 +479,15 @@ Author: Lars, Darsh, Pradyun
       this.updateCoinDisplay();
     }
     spendCoins(amount) {
-      this.coins -= amount;
-      this.updateCoinDisplay();
-    }
+  if (typeof this.coins !== 'number') this.coins = 0; // failsafe
+  if (typeof amount !== 'number' || isNaN(amount)) {
+    console.error('Invalid amount passed to spendCoins:', amount);
+    return;
+  }
+
+  this.coins -= amount;
+  this.updateCoinDisplay?.(); // refresh UI if method exists
+}
     updateUserHealthBar() {
       const percent = Math.max(0, this.userHealth / this.userMaxHealth);
       this.userHealthBar.style.width = `${percent * 100}%`;
@@ -958,19 +964,24 @@ Author: Lars, Darsh, Pradyun
       upgradeBtn.style.color = '#fff';
 
      upgradeBtn.onclick = (e) => {
-  try {
-    e.stopPropagation();
-    if (tower.level < 5 && this.coins >= tower.cost) {
-      this.spendCoins(tower.cost); // ⬅️ using `this` instead of `game`
-      upgradeTower(tower, this);   // ⬅️ pass `this` as game
-      this.renderTowers();
-    } else {
-      alert("Not enough coins or max level reached.");
-    }
-    upgradeBtn.remove();
-  } catch (err) {
-    console.error("Upgrade error:", err);
+  e.stopPropagation();
+
+  const upgradeCost = 100 * (tower.level + 1); // scalable cost
+
+  if (tower.level >= 5) {
+    alert("Tower is at max level.");
+    return;
   }
+
+  if (this.coins < upgradeCost) {
+    alert(`Not enough coins! Need ${upgradeCost}`);
+    return;
+  }
+
+  this.spendCoins(upgradeCost);
+  upgradeTower(tower, this);
+  this.renderTowers();
+  upgradeBtn.remove();
 };
 
       this.gameContainer.appendChild(upgradeBtn);
@@ -1398,34 +1409,36 @@ Author: Lars, Darsh, Pradyun
       setTimeout(() => this.towerAttackLoop(), TOWER_ATTACK_INTERVAL);
     }
   }
- function upgradeTower(tower, gameInstance) {
-  if (tower.level >= 5) return;
+function upgradeTower(tower, game) {
+  if (typeof tower.level !== 'number') tower.level = 0;
 
+  if (tower.level >= 5) {
+    alert("Max level reached!");
+    return;
+  }
+
+  const upgradeCost = 100 * (tower.level + 1);
+  if (game.coins < upgradeCost) {
+    alert("Not enough coins!");
+    return;
+  }
+
+  game.spendCoins(upgradeCost);
   tower.level++;
 
+  // Apply upgrades based on level
   if (tower.name === 'Archer Tower') {
     switch (tower.level) {
-      case 1:
-        tower.fireRate = 700 / 3;
-        break;
-      case 2:
-        tower.radius *= 3;
-        break;
-      case 3:
-        tower.pierce = true;
-        break;
-      case 4:
-        tower.multiShot = true;
-        break;
-      case 5:
-        tower.abilityReady = true;
-        break;
+      case 1: tower.fireRate = 700 / 3; break;
+      case 2: tower.radius *= 3; break;
+      case 3: tower.pierce = true; break;
+      case 4: tower.multiShot = true; break;
+      case 5: tower.abilityReady = true; break;
     }
   }
 
-  gameInstance?.renderTowers?.(); // safe call
+  game.renderTowers?.();
 }
-
   // --- Start Game ---
   window.BarrierOpsGame = new Game();
 
