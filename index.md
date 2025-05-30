@@ -884,81 +884,92 @@ Author: Lars, Darsh, Pradyun
       return true;
     }
     renderTowers() {
+  // Clear existing towers and radius visuals
   document.querySelectorAll('.tower').forEach(el => el.remove());
   document.querySelectorAll('.tower-radius').forEach(el => el.remove());
+  document.querySelectorAll('.tower-level').forEach(el => el.remove());
+  document.querySelectorAll('.upgrade-btn').forEach(el => el.remove());
 
   this.placedTowers.forEach(tower => {
-      // Radius
-      const radiusDiv = document.createElement('div');
-  radiusDiv.className = 'tower-radius';
-  radiusDiv.style.position = 'absolute'; // 🔧 ensure positioning
-  radiusDiv.style.left = `${tower.x - tower.radius}px`;
-  radiusDiv.style.top = `${tower.y - tower.radius}px`;
-  radiusDiv.style.width = `${tower.radius * 2}px`;
-  radiusDiv.style.height = `${tower.radius * 2}px`;
-  radiusDiv.style.borderRadius = '50%';
-  radiusDiv.style.background = 'rgba(0, 200, 255, 0.15)';
-  radiusDiv.style.border = '2px dashed #00bcd4';
-  radiusDiv.style.pointerEvents = 'none';
-  radiusDiv.style.zIndex = 10;
-  this.gameContainer.appendChild(radiusDiv);
+    // Create and display radius circle
+    const radiusDiv = document.createElement('div');
+    radiusDiv.className = 'tower-radius';
+    radiusDiv.style.position = 'absolute';
+    radiusDiv.style.left = `${tower.x - tower.radius}px`;
+    radiusDiv.style.top = `${tower.y - tower.radius}px`;
+    radiusDiv.style.width = `${tower.radius * 2}px`;
+    radiusDiv.style.height = `${tower.radius * 2}px`;
+    radiusDiv.style.borderRadius = '50%';
+    radiusDiv.style.background = 'rgba(0, 200, 255, 0.15)';
+    radiusDiv.style.border = '2px dashed #00bcd4';
+    radiusDiv.style.pointerEvents = 'none';
+    radiusDiv.style.zIndex = 10;
+    this.gameContainer.appendChild(radiusDiv);
 
-    // Tower image
+    // Create tower image
     const img = document.createElement('img');
     img.src = tower.imageSrc;
     img.className = 'tower';
+    img.style.position = 'absolute';
     img.style.left = `${tower.x - 25}px`;
     img.style.top = `${tower.y - 25}px`;
     img.style.width = '50px';
     img.style.height = '50px';
     img.title = tower.name;
     img.style.cursor = 'pointer';
-    img.onclick = () => this.showUpgradeButton(tower); // 💡 click for upgrade
+    img.style.zIndex = 15;
     this.gameContainer.appendChild(img);
 
     // Level label
-    const label = document.createElement('div');
-    label.textContent = `Lv. ${tower.level || 0}`;
-    label.style.position = 'absolute';
-    label.style.left = `${tower.x - 10}px`;
-    label.style.top = `${tower.y + 30}px`;
-    label.style.color = '#fff';
-    label.style.fontSize = '14px';
-    label.style.fontWeight = 'bold';
-    label.style.zIndex = 16;
-    label.style.pointerEvents = 'none';
-    this.gameContainer.appendChild(label);
+    const levelLabel = document.createElement('div');
+    levelLabel.className = 'tower-level';
+    levelLabel.textContent = `Lv ${tower.level || 0}`;
+    levelLabel.style.position = 'absolute';
+    levelLabel.style.left = `${tower.x - 12}px`;
+    levelLabel.style.top = `${tower.y + 28}px`;
+    levelLabel.style.color = '#fff';
+    levelLabel.style.fontSize = '14px';
+    levelLabel.style.fontWeight = 'bold';
+    levelLabel.style.zIndex = 20;
+    this.gameContainer.appendChild(levelLabel);
 
+    // Upgrade button
     img.onclick = () => {
-  const existing = document.getElementById('upgradeBtn');
-  if (existing) {
-    existing.remove();
-    return;
-  }
+      const existing = document.getElementById('upgradeBtn');
+      if (existing) {
+        existing.remove();
+        return;
+      }
 
-  const btn = document.createElement('button');
-  btn.textContent = "Upgrade";
-  btn.id = 'upgradeBtn';
-  btn.style.position = 'absolute';
-  btn.style.left = `${tower.x + 30}px`;
-  btn.style.top = `${tower.y - 20}px`;
-  btn.style.zIndex = 1000;
-  btn.style.padding = '4px 10px';
-  btn.style.background = '#28a745';
-  btn.style.color = 'white';
-  btn.style.border = 'none';
-  btn.style.borderRadius = '4px';
-  btn.style.cursor = 'pointer';
+      const upgradeBtn = document.createElement('button');
+      upgradeBtn.id = 'upgradeBtn';
+      upgradeBtn.className = 'upgrade-btn';
+      upgradeBtn.textContent = 'Upgrade';
+      upgradeBtn.style.position = 'absolute';
+      upgradeBtn.style.left = `${tower.x - 30}px`;
+      upgradeBtn.style.top = `${tower.y + 45}px`;
+      upgradeBtn.style.zIndex = 1000;
+      upgradeBtn.style.padding = '4px 8px';
+      upgradeBtn.style.fontSize = '12px';
+      upgradeBtn.style.cursor = 'pointer';
+      upgradeBtn.style.borderRadius = '5px';
+      upgradeBtn.style.border = 'none';
+      upgradeBtn.style.background = '#28a745';
+      upgradeBtn.style.color = '#fff';
 
-  btn.onclick = (e) => {
-    e.stopPropagation(); // Prevent triggering img.onclick again
-    upgradeTower(tower);
-    btn.remove(); // Remove button after click
-    this.renderTowers(); // Re-render to show updated level
-  };
+      upgradeBtn.onclick = (e) => {
+        e.stopPropagation();
+        try {
+          upgradeTower(tower);
+          upgradeBtn.remove();
+          this.renderTowers();
+        } catch (err) {
+          console.error("Upgrade error:", err);
+        }
+      };
 
-  this.gameContainer.appendChild(btn);
-};
+      this.gameContainer.appendChild(upgradeBtn);
+    };
   });
 }
 
@@ -1382,6 +1393,38 @@ Author: Lars, Darsh, Pradyun
       setTimeout(() => this.towerAttackLoop(), TOWER_ATTACK_INTERVAL);
     }
   }
+  function upgradeTower(tower) {
+  if (tower.level >= 5) return; // Max level cap
+
+  tower.level++;
+
+  if (tower.name === 'Archer Tower') {
+    switch (tower.level) {
+      case 1:
+        tower.fireRate = 700 / 3; // Faster shooting
+        break;
+      case 2:
+        tower.radius *= 3; // Bigger range
+        break;
+      case 3:
+        tower.pierce = true; // Hit more than one target
+        break;
+      case 4:
+        tower.multiShot = true; // Shoot 3 arrows
+        break;
+      case 5:
+        tower.abilityReady = true; // Ultimate ability
+        break;
+    }
+  }
+
+  // Re-render towers to reflect changes
+  if (typeof game !== 'undefined' && typeof game.renderTowers === 'function') {
+    game.renderTowers(); // Assuming `game` is your main class instance
+  }
+}
+
+
 
   // --- Start Game ---
   window.BarrierOpsGame = new Game();
