@@ -1424,47 +1424,87 @@ class Upgrades {
   }
 
   upgradeTower(tower) {
-    if (typeof tower.level !== 'number') tower.level = 0;
+  if (typeof tower.level !== 'number') tower.level = 0;
 
-    if (tower.level >= 5) {
-      alert("Max level reached!");
-      return;
-    }
-
-    const upgradeCost = 100 * (tower.level + 1);
-    if (this.game.coins < upgradeCost) {
-      alert("Not enough coins!");
-      return;
-    }
-
-    this.game.spendCoins(upgradeCost);
-    tower.level++;
-
-    if (tower.name === 'Archer Tower') {
-      switch (tower.level) {
-        case 1: tower.fireRate = 700 / 3; break;
-        case 2: tower.radius *= 3; break;
-        case 3: tower.pierce = true; break;
-        case 4: tower.multiShot = true; break;
-        case 5: tower.abilityReady = true; break;
-      }
-    }
-
-    if (tower.name === 'Wizard Tower') {
-      switch (tower.level) {
-        case 1: tower.aoe = true; break;
-        case 2: tower.fireRate = 1200 / 10; break;
-        case 3:
-          tower.wallOfFireTimer = performance.now();
-          tower.wallOfFireInterval = 30000;
-          break;
-        case 4: tower.pierce = 3; break;
-        case 5: tower.fireballDroneActive = true; break;
-      }
-    }
-
-    this.game.renderTowers?.();
+  if (tower.level >= 5) {
+    alert("Max level reached!");
+    return;
   }
+
+  const upgradeCost = 100 * (tower.level + 1);
+  if (this.game.coins < upgradeCost) {
+    alert("Not enough coins!");
+    return;
+  }
+
+  this.game.spendCoins(upgradeCost);
+  tower.level++;
+
+  if (tower.name === 'Archer Tower') {
+    switch (tower.level) {
+      case 1: tower.fireRate = 700 / 3; break;
+      case 2: tower.radius *= 3; break;
+      case 3: tower.pierce = true; break;
+      case 4: tower.multiShot = true; break;
+      case 5: tower.abilityReady = true; break;
+    }
+  }
+
+  if (tower.name === 'Wizard Tower') {
+    switch (tower.level) {
+      case 1: tower.aoe = true; break;
+      case 2: tower.fireRate = 1200 / 10; break;
+      case 3:
+        tower.wallOfFireTimer = performance.now();
+        tower.wallOfFireInterval = 30000;
+        break;
+      case 4: tower.pierce = 3; break;
+      case 5: tower.fireballDroneActive = true; break;
+    }
+  }
+
+  if (tower.name === 'Magic Beam Tower') {
+    switch (tower.level) {
+      case 1: tower.pierce = true; break;
+      case 2: tower.fireRate = 500 / 2; break;
+      case 3: tower.damageOverTime = true; break;
+      case 4: tower.chainLightning = true; break;
+      case 5: tower.empBlast = true; break;
+    }
+  }
+
+  if (tower.name === 'Freeze Tower') {
+    switch (tower.level) {
+      case 1: tower.freezeDuration = 2; break;
+      case 2: tower.radius *= 1.5; break;
+      case 3: tower.freezeAura = true; break;
+      case 4: tower.freezeOnHit = true; break;
+      case 5: tower.superFreeze = true; break;
+    }
+  }
+
+  if (tower.name === 'Rage Beacon') {
+    switch (tower.level) {
+      case 1: tower.buffRange *= 1.5; break;
+      case 2: tower.attackSpeedBuff = 1.5; break;
+      case 3: tower.rageAura = true; break;
+      case 4: tower.globalBuff = true; break;
+      case 5: tower.rageSurge = true; break;
+    }
+  }
+
+  if (tower.name === 'Lightning Obelisk') {
+    switch (tower.level) {
+      case 1: tower.chainLightning = true; break;
+      case 2: tower.fireRate = 800 / 2; break;
+      case 3: tower.stunChance = 0.2; break;
+      case 4: tower.stunDuration = 2; break;
+      case 5: tower.ultimateZap = true; break;
+    }
+  }
+
+  this.game.renderTowers?.();
+}
 }
   // --- Start Game ---
   window.BarrierOpsGame = new Game();
