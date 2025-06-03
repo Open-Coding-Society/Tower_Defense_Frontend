@@ -86,6 +86,19 @@ Author: Lars, Darsh, Pradyun
   }
 </style>
 
+<!-- Help Section -->
+<div id="helpSection" style="max-width:900px;margin:32px auto 24px auto;padding:18px 28px;background:rgba(30,30,30,0.95);border:2px solid #fff;border-radius:12px;color:#fff;font-size:18px;line-height:1.6;box-shadow:0 2px 12px #0008;">
+  <h2 style="color:#ffd700;margin-top:0;">How to Play Tower Defense</h2>
+  <ul style="margin:0 0 0 18px;padding:0;">
+    <li><b>Goal:</b> Defend your king by building and upgrading towers to stop waves of enemies from reaching the end of the path.</li>
+    <li><b>Placing Towers:</b> Drag a tower from the menu below the map and drop it onto the battlefield (avoid the path and other towers).</li>
+    <li><b>Coins:</b> Earn coins by defeating enemies. Use coins to build and upgrade towers.</li>
+    <li><b>Upgrading:</b> Click on a placed tower to upgrade it for increased power (cost increases with each level).</li>
+    <li><b>Health:</b> If enemies reach the end, you lose health. Game over when health reaches zero.</li>
+    <li><b>Tips:</b> Different towers have unique abilities. Experiment with placements and upgrades for the best defense!</li>
+  </ul>
+</div>
+
 <!-- Points Display -->
 <div id="pointsDisplay">Points: <span id="pointsAmount">0</span></div>
 <!-- Coin Display -->
