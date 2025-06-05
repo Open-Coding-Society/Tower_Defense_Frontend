@@ -4,7 +4,7 @@ if (location.hostname === "localhost") {
 } else if (location.hostname === "127.0.0.1") {
         pythonURI = "http://127.0.0.1:3168";
 } else {
-        pythonURI =  "https://tower-defense.opencodingsociety.com";
+        pythonURI =  "https://towerdefense.opencodingsociety.com";
 }
 export var javaURI;
 if (location.hostname === "localhost") {
