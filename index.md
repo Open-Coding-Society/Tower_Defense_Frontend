@@ -5,6 +5,8 @@ description: Build and Upgrade your towers to defend your king!
 Author: Lars, Darsh, Pradyun
 ---
 
+<!-- Object Oriented Tower Defense Game Divided into ES6 Classes. Based on Clash Royale -->
+
 <style>
     body {
       margin: 0;
